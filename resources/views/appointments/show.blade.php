@@ -101,18 +101,33 @@
                         <dt>Tarifa</dt>
                         <dd>{{ $paymentOverview['amount'] }} {{ $paymentOverview['currency'] }}</dd>
                     </div>
-                    <div>
-                        <dt>Estado del pago</dt>
-                        <dd>
-                            @if ($paymentOverview['payment'])
+                <div>
+                    <dt>Estado del pago</dt>
+                    <dd>
+                        @if ($paymentOverview['payment'])
+                            <span class="status-pill {{ $paymentOverview['payment']->estado === 'Confirmado' ? 'is-confirmada' : ($paymentOverview['payment']->estado === 'Pendiente' ? 'is-programada' : 'is-failed') }}">
                                 {{ $paymentOverview['payment']->estado }}
-                            @else
-                                Sin cobro iniciado
-                            @endif
-                        </dd>
-                    </div>
+                            </span>
+                        @else
+                            <span class="status-pill is-inactive">Sin cobro iniciado</span>
+                        @endif
+                    </dd>
+                </div>
                 </dl>
-                @if (! empty($checkoutUrl))
+
+                @if ($paymentOverview['payment'] && $paymentOverview['payment']->estado === 'Confirmado')
+                    <p class="form-status" role="status">
+                        Pago recibido: {{ $paymentOverview['amount'] }} {{ $paymentOverview['currency'] }}.
+                        La consulta quedó cobrada
+                        @if ($appointment->estado === 'Confirmada')
+                            y la cita está Confirmada.
+                        @else
+                            ; revise el estado de la cita.
+                        @endif
+                    </p>
+                @endif
+
+                @if (! empty($checkoutUrl) && ! ($paymentOverview['payment'] && $paymentOverview['payment']->estado === 'Confirmado'))
                     <div style="display:grid;gap:0.75rem;justify-items:start;margin:1rem 0">
                         <img
                             src="https://api.qrserver.com/v1/create-qr-code/?size=220x220&data={{ rawurlencode($checkoutUrl) }}"
@@ -136,9 +151,7 @@
                     <p class="list-meta">Genera un QR/link Stripe (BOB) para que el cliente pague en su teléfono. Al confirmar el webhook, la cita pasa a Confirmada.</p>
                 @elseif ($paymentOverview['can_start'] && ! $paymentOverview['configured'])
                     <p class="list-meta">El cobro en línea no está configurado en este entorno.</p>
-                @elseif ($paymentOverview['payment'] && $paymentOverview['payment']->estado === 'Confirmado')
-                    <p class="list-meta">La consulta ya está cobrada.</p>
-                @elseif (! ($paymentOverview['payment'] && $paymentOverview['payment']->estado === 'Pendiente') && empty($checkoutUrl))
+                @elseif (! ($paymentOverview['payment'] && in_array($paymentOverview['payment']->estado, ['Confirmado', 'Pendiente'], true)) && empty($checkoutUrl))
                     <p class="list-meta">Esta cita no admite un nuevo cobro en línea.</p>
                 @endif
             </article>

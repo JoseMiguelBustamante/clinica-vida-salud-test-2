@@ -38,7 +38,15 @@
             </dl>
 
             @if ($payment->estado === 'Confirmado')
-                <p class="form-status" role="status">El cobro quedó Confirmado. La cita debería pasar a Confirmada.</p>
+                <p class="form-status" role="status">
+                    Pago recibido: {{ $amount }} {{ $currency }}. El cobro quedó Confirmado
+                    @if ($appointment->estado === 'Confirmada')
+                        y la cita ya está Confirmada.
+                    @else
+                        ; vuelva a la ficha para verificar el estado de la cita.
+                    @endif
+                </p>
+                <p><a class="row-action" href="{{ route('appointments.show', $appointment->id_cita) }}">Ver ficha de la cita</a></p>
             @elseif ($checkoutUrl)
                 <div style="display:grid;gap:1rem;justify-items:start;margin-top:1rem">
                     <img

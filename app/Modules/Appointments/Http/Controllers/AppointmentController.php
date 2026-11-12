@@ -170,6 +170,10 @@ final class AppointmentController
             if (in_array(PermissionCatalog::PAY_CONSULTATIONS, $codes, true)) {
                 try {
                     $paymentOverview = $this->consultationPayments->overviewForAppointment($cita);
+                    if ($paymentOverview['payment'] !== null
+                        && (string) $paymentOverview['payment']->estado === 'Confirmado') {
+                        $request->session()->forget('consultation_checkout_url_'.$cita);
+                    }
                     $checkoutUrl = $request->session()->get('consultation_checkout_url_'.$cita);
                     if (! is_string($checkoutUrl) || $checkoutUrl === '') {
                         $checkoutUrl = null;

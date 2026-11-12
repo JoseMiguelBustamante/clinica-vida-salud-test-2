@@ -60,7 +60,23 @@ class ConsultationPaymentScreenTest extends TestCase
 
     public function test_client_success_page_is_public(): void
     {
-        $this->get('/citas/9/pago/exito')->assertOk()->assertSee('Pago recibido');
+        $payments = Mockery::mock(ConsultationPaymentService::class);
+        $payments->shouldReceive('paymentReceiptForAppointment')->once()->with(9)->andReturn([
+            'codigo' => 'CIT-9',
+            'estado_cita' => 'Confirmada',
+            'paid' => true,
+            'amount' => '150.00',
+            'currency' => 'BOB',
+            'payment_status' => 'Confirmado',
+        ]);
+        $this->app->instance(ConsultationPaymentService::class, $payments);
+
+        $this->get('/citas/9/pago/exito')
+            ->assertOk()
+            ->assertSee('Pago recibido')
+            ->assertSee('El pago de la consulta fue confirmado correctamente.')
+            ->assertSee('150.00')
+            ->assertSee('CIT-9');
         $this->assertSame([], $this->app['db']->getConnections());
     }
 

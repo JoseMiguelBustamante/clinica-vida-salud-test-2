@@ -93,8 +93,16 @@ final class ConsultationPaymentController
 
     public function showConsultationPaymentSuccess(int $cita): View
     {
+        $receipt = null;
+        try {
+            $receipt = $this->payments->paymentReceiptForAppointment($cita);
+        } catch (Throwable $exception) {
+            Log::warning('[ConsultationPaymentController - showConsultationPaymentSuccess] '.$exception::class);
+        }
+
         return view('appointments.payment-success', [
             'appointmentId' => $cita,
+            'receipt' => $receipt,
         ]);
     }
 

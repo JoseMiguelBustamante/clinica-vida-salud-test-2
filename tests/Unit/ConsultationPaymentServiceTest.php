@@ -38,6 +38,34 @@ class ConsultationPaymentServiceTest extends TestCase
         $this->assertSame([], $this->app['db']->getConnections());
     }
 
+    public function test_payment_receipt_marks_confirmed_payments(): void
+    {
+        $appointments = Mockery::mock(AppointmentService::class);
+        $appointments->shouldReceive('getAppointmentById')->once()->with(9)->andReturn((object) [
+            'codigo' => 'CIT-9',
+            'estado' => 'Confirmada',
+        ]);
+
+        $payments = Mockery::mock(ConsultationPaymentRepository::class);
+        $payments->shouldReceive('getLatestPaymentForAppointment')->once()->with(9)->andReturn((object) [
+            'monto' => '150.00',
+            'moneda' => 'BOB',
+            'estado' => 'Confirmado',
+        ]);
+
+        $receipt = (new ConsultationPaymentService(
+            $appointments,
+            $payments,
+            Mockery::mock(StripeCheckoutGateway::class),
+        ))->paymentReceiptForAppointment(9);
+
+        $this->assertTrue($receipt['paid']);
+        $this->assertSame('CIT-9', $receipt['codigo']);
+        $this->assertSame('150.00', $receipt['amount']);
+        $this->assertSame('Confirmado', $receipt['payment_status']);
+        $this->assertSame([], $this->app['db']->getConnections());
+    }
+
     public function test_start_checkout_requires_a_configured_gateway(): void
     {
         $appointments = Mockery::mock(AppointmentService::class);

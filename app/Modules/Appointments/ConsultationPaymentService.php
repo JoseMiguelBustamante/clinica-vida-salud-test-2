@@ -34,6 +34,25 @@ final class ConsultationPaymentService
     }
 
     /**
+     * @return array{codigo: string, estado_cita: string, paid: bool, amount: ?string, currency: ?string, payment_status: ?string}
+     */
+    public function paymentReceiptForAppointment(int $appointmentId): array
+    {
+        $appointment = $this->appointments->getAppointmentById($appointmentId);
+        $payment = $this->payments->getLatestPaymentForAppointment($appointmentId);
+        $paid = $payment !== null && (string) $payment->estado === 'Confirmado';
+
+        return [
+            'codigo' => (string) $appointment->codigo,
+            'estado_cita' => (string) $appointment->estado,
+            'paid' => $paid,
+            'amount' => $payment !== null ? number_format((float) $payment->monto, 2, '.', '') : null,
+            'currency' => $payment !== null ? strtoupper((string) $payment->moneda) : null,
+            'payment_status' => $payment !== null ? (string) $payment->estado : null,
+        ];
+    }
+
+    /**
      * @return array{appointment: object, payment: object, amount: string, currency: string, checkout_url: ?string}
      */
     public function checkoutQrForAppointment(int $appointmentId, ?string $preferredUrl = null): array
