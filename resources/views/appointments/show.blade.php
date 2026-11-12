@@ -128,7 +128,7 @@
                 @endif
 
                 @if (! empty($checkoutUrl) && ! ($paymentOverview['payment'] && $paymentOverview['payment']->estado === 'Confirmado'))
-                    <div style="display:grid;gap:0.75rem;justify-items:start;margin:1rem 0">
+                    <div class="payment-qr-panel">
                         <img
                             src="https://api.qrserver.com/v1/create-qr-code/?size=220x220&data={{ rawurlencode($checkoutUrl) }}"
                             alt="Código QR para que el cliente pague la consulta"
@@ -137,7 +137,7 @@
                         >
                         <p class="list-meta">El cliente escanea este QR o abre el link en su celular. El personal no paga.</p>
                         <p><a class="row-action" href="{{ $checkoutUrl }}" target="_blank" rel="noopener noreferrer">Abrir link de pago</a></p>
-                        <p class="list-meta" style="word-break:break-all">{{ $checkoutUrl }}</p>
+                        <p class="list-meta payment-qr-link">{{ $checkoutUrl }}</p>
                     </div>
                 @elseif ($paymentOverview['payment'] && $paymentOverview['payment']->estado === 'Pendiente')
                     <p><a class="row-action" href="{{ route('appointments.payment.qr', $appointment->id_cita) }}">Ver QR de cobro</a></p>
