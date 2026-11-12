@@ -147,11 +147,12 @@ class ScheduleServiceTest extends TestCase
             return 1;
         });
         DB::shouldReceive('transaction')->times(5)->andReturnUsing(fn (callable $callback) => $callback());
+        DB::shouldReceive('getConnections')->andReturn([]);
 
         $created = (new ScheduleService($schedules, $physicians))
             ->ensureMissingWeekdaySchedulesForActivePhysicians();
 
         $this->assertSame(5, $created);
-        $this->assertSame([], $this->app['db']->getConnections());
+        $this->assertSame([], DB::getConnections());
     }
 }
