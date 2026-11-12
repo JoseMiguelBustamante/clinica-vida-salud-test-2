@@ -1747,11 +1747,39 @@ a.code-link:hover {
 }
 
 .reports-filter-card {
-    padding: 1.25rem 1.25rem 1.35rem;
+    padding: 1rem 1.25rem 1.15rem;
 }
 
 .reports-filter-card h2 {
     margin: 0 0 0.45rem;
+}
+
+.reports-filter-summary {
+    list-style: none;
+    cursor: pointer;
+    display: grid;
+    gap: 0.2rem;
+    padding: 0.35rem 0;
+}
+
+.reports-filter-summary::-webkit-details-marker {
+    display: none;
+}
+
+.reports-filter-summary-title {
+    font-weight: 700;
+    color: var(--clinic-ink);
+}
+
+.reports-filter-summary-hint {
+    font-size: 0.92rem;
+    color: var(--clinic-muted);
+}
+
+.reports-filter-card[open] .reports-filter-summary {
+    margin-bottom: 0.85rem;
+    padding-bottom: 0.75rem;
+    border-bottom: 1px solid var(--clinic-line);
 }
 
 .reports-filter-hint {
@@ -1940,7 +1968,7 @@ a.code-link:hover {
 }
 
 .reports-ai-card {
-    margin-top: 1.25rem;
+    margin-top: 0.75rem;
     scroll-margin-top: 1rem;
 }
 
@@ -1951,7 +1979,6 @@ a.code-link:hover {
 .reports-ai-form textarea:disabled {
     background: var(--clinic-panel);
 }
-
 
 .reports-ai-form {
     display: grid;
@@ -1965,23 +1992,35 @@ a.code-link:hover {
 }
 
 .reports-ai-actions {
-    display: flex;
-    flex-wrap: wrap;
+    display: grid;
     gap: 0.65rem;
 }
 
-.reports-ai-answer {
+.reports-ai-actions .button:not(.button-quiet) {
+    width: 100%;
+}
+
+.reports-ai-answer-card {
     margin-top: 1rem;
-    padding: 0.95rem 1rem;
-    background: var(--clinic-panel);
-    border: 1px solid var(--clinic-line);
-    border-radius: 0.85rem;
+}
+
+.reports-ai-answer-card h2 {
+    margin-top: 0;
 }
 
 .reports-ai-answer-body {
-    margin-top: 0.35rem;
+    margin-top: 0.55rem;
     white-space: normal;
-    line-height: 1.45;
+    line-height: 1.5;
+}
+
+.reports-ai-answer-body p,
+.reports-ai-answer-body ul {
+    margin: 0 0 0.55rem;
+}
+
+.reports-ai-answer-body ul {
+    padding-left: 1.2rem;
 }
 
 .payment-qr-link {

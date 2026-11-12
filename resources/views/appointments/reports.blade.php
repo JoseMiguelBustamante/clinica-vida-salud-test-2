@@ -8,9 +8,8 @@
         <div class="page-toolbar">
             <div>
                 <h1 id="page-title">Reportes administrativos</h1>
-                <p class="lead">Consulta por fecha, médico, especialidad y estado. No modifica registros ni muestra diagnósticos o notas médicas.</p>
+                <p class="lead">Pida el reporte al asistente. No modifica registros ni muestra diagnósticos o notas médicas.</p>
             </div>
-            <a class="button button-inline button-quiet" href="#asistente-reporte">Ir al asistente IA</a>
         </div>
 
         @if (session('status'))
@@ -49,7 +48,7 @@
 
         <article class="list-card detail-card reports-ai-card" id="asistente-reporte" aria-labelledby="assistant-title">
             <h2 id="assistant-title">Asistente del reporte</h2>
-            <p class="reports-filter-hint" id="assistant-help">Describa el reporte que necesita (tipo y fechas) o una pregunta. Si falta un dato obligatorio, el asistente le consulta. Solo usa fechas de calendario, no hora del reloj. Revise la respuesta contra los resultados.</p>
+            <p class="reports-filter-hint" id="assistant-help">Escriba qué reporte necesita y la fecha (AAAA-MM-DD). Si falta un dato, el asistente se lo pide.</p>
             @if (! ($aiConfigured ?? false))
                 <p class="form-status" role="status">El asistente no está configurado. En Dokploy defina <code>OPENAI_API_KEY</code>, <code>OPENAI_BASE_URL</code> y <code>OPENAI_MODEL</code> del proveedor que use (API compatible; la suscripción del chat no alcanza).</p>
             @endif
@@ -70,24 +69,20 @@
                 @endforeach
                 <div class="field">
                     <label for="pregunta">Instrucción o pregunta</label>
-                    <textarea id="pregunta" name="pregunta" rows="3" maxlength="500" aria-describedby="assistant-help" placeholder="Ejemplo: Totales de atendidas y canceladas del 2026-11-01 al 2026-11-12" @disabled(! ($aiConfigured ?? false))>{{ old('pregunta', $aiQuestion && $aiQuestion !== 'Resumen del reporte' ? $aiQuestion : '') }}</textarea>
+                    <textarea id="pregunta" name="pregunta" rows="3" maxlength="500" aria-describedby="assistant-help" placeholder="Ejemplo: Agenda diaria de cada médico para el 2026-11-12" @disabled(! ($aiConfigured ?? false))>{{ old('pregunta', $aiQuestion && $aiQuestion !== 'Resumen del reporte' ? $aiQuestion : '') }}</textarea>
                 </div>
                 <div class="reports-ai-actions">
-                    <button class="button button-inline button-quiet" type="submit" name="accion" value="resumir" @disabled(! ($aiConfigured ?? false))>Generar y resumir</button>
-                    <button class="button" type="submit" name="accion" value="preguntar" @disabled(! ($aiConfigured ?? false))>Generar y preguntar</button>
+                    <button class="button" type="submit" name="accion" value="resumir" @disabled(! ($aiConfigured ?? false))>Generar reporte</button>
+                    <button class="button button-inline button-quiet" type="submit" name="accion" value="preguntar" @disabled(! ($aiConfigured ?? false))>Preguntar</button>
                 </div>
             </form>
-            @if (! empty($aiAnswer))
-                <div class="reports-ai-answer" role="status">
-                    <p class="reports-kpi-label">{{ $aiQuestion ?: 'Respuesta' }}</p>
-                    <div class="reports-ai-answer-body">{!! nl2br(e($aiAnswer)) !!}</div>
-                </div>
-            @endif
         </article>
 
-        <article class="list-card detail-card reports-filter-card">
-            <h2>Filtros manuales (opcional)</h2>
-            <p class="reports-filter-hint">Alternativa al asistente: al elegir el tipo se rellenan las fechas (día actual, o lunes hasta hoy). Ajuste el rango o use los atajos.</p>
+        <details class="list-card detail-card reports-filter-card" @if ($selectedType !== '' && empty($aiAnswer) && empty($aiClarifications)) open @endif>
+            <summary class="reports-filter-summary">
+                <span class="reports-filter-summary-title">Filtros manuales</span>
+                <span class="reports-filter-summary-hint">Opcional, si prefiere elegir tipo y fechas</span>
+            </summary>
             <form class="filter-bar reports-filter-bar" method="get" action="{{ route('reports.generate', absolute: false) }}" id="reports-filter-form">
                 <div class="field reports-field-type">
                     <label for="tipo">Tipo de reporte</label>
@@ -165,10 +160,10 @@
                 @endif
 
                 <div class="reports-filter-actions">
-                    <button class="button" type="submit" name="generar" value="1">Generar reporte</button>
+                    <button class="button button-inline" type="submit" name="generar" value="1">Generar con filtros</button>
                 </div>
             </form>
-        </article>
+        </details>
 
         @if ($generated)
             <section class="reports-kpi-grid" aria-label="Resumen del reporte">
@@ -380,10 +375,20 @@
                 <p class="list-meta reports-result-footer">Mostrando {{ $recordCount }} de {{ $recordCount }} {{ $recordCount === 1 ? 'registro' : 'registros' }} · PDF abre una vista lista para imprimir o guardar.</p>
             </article>
 
+            @if (! empty($aiAnswer))
+                <article class="list-card detail-card reports-ai-answer-card" aria-label="Respuesta del asistente">
+                    <h2>Respuesta del asistente</h2>
+                    @if ($aiQuestion && $aiQuestion !== 'Resumen del reporte')
+                        <p class="reports-kpi-label">{{ $aiQuestion }}</p>
+                    @endif
+                    <div class="reports-ai-answer-body">{!! \Illuminate\Support\Str::markdown($aiAnswer) !!}</div>
+                </article>
+            @endif
+
         @elseif ($selectedType === '')
-            <p class="list-meta">Seleccione un tipo de reporte. Las fechas se completan solas; complete el resto de filtros si el tipo lo pide.</p>
+            <p class="list-meta">Escriba arriba qué reporte necesita, o abra filtros manuales si prefiere elegir el tipo.</p>
         @else
-            <p class="list-meta">Complete el filtro pendiente (médico, especialidad o estado) para generar el reporte.</p>
+            <p class="list-meta">Complete el filtro pendiente (médico, especialidad o estado) o pídalo al asistente.</p>
         @endif
     </section>
 @endsection

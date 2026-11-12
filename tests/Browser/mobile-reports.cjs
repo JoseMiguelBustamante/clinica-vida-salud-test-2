@@ -48,9 +48,8 @@ const assert = require('node:assert/strict');
                     }
                 });
                 await check('assistant shortcut and question are discoverable', async () => {
-                    assert(await page.locator('a[href="#asistente-reporte"]').isVisible());
+                    assert(await page.locator('#asistente-reporte').isVisible());
                     assert.equal(await page.locator('#pregunta').count(), 1);
-                    await page.locator('a[href="#asistente-reporte"]').click();
                     await page.locator('#pregunta').scrollIntoViewIfNeeded();
                     assert(await page.locator('#pregunta').isVisible());
                     assert.equal(await page.locator('#pregunta').isDisabled(), false);

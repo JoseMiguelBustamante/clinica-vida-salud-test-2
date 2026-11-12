@@ -50,9 +50,10 @@ class ReportScreenTest extends TestCase
 
         $this->withSession([Auth::guard('web')->getName() => 17]);
         $this->get('/reportes')->assertOk()->assertSee('Reportes administrativos')
+            ->assertSee('Asistente del reporte')
             ->assertSee('Citas programadas para una fecha')
             ->assertSee('Generar reporte')
-            ->assertSee('Seleccione un tipo de reporte')
+            ->assertSee('Escriba arriba qué reporte necesita')
             ->assertDontSee('Criterios aplicados');
         $this->assertSame([], $this->app['db']->getConnections());
     }
@@ -68,9 +69,10 @@ class ReportScreenTest extends TestCase
         $this->saveBrowserFixture('initial', $response->getContent());
         $response->assertSee('id="app-navigation"', false)
             ->assertSee('Menú de navegación')
-            ->assertSee('href="#asistente-reporte"', false)
+            ->assertSee('id="asistente-reporte"', false)
             ->assertSee('id="pregunta"', false)
-            ->assertSee('Filtros manuales (opcional)')
+            ->assertSee('Filtros manuales')
+            ->assertDontSee('Ir al asistente IA')
             ->assertDontSee('Primero genere un reporte para habilitar las preguntas.');
         $dom = new \DOMDocument;
         @$dom->loadHTML($response->getContent());
@@ -96,7 +98,8 @@ class ReportScreenTest extends TestCase
         $response = $this->get('/reportes?tipo=citas_fecha&fecha=2026-11-01&generar=1');
         $response->assertOk()->assertSee('DEMO-30');
         $this->saveBrowserFixture('generated', $response->getContent());
-        $response->assertSeeInOrder(['Asistente del reporte', 'Resultado del reporte']);
+        $response->assertSeeInOrder(['Asistente del reporte', 'Resultado del reporte'])
+            ->assertDontSee('Ir al asistente IA');
         $dom = new \DOMDocument;
         @$dom->loadHTML($response->getContent());
         $xpath = new \DOMXPath($dom);
