@@ -4,15 +4,10 @@
 
 @section('content')
     <section class="app-page" aria-labelledby="page-title">
-        <p class="app-breadcrumb">Atención / Citas / Pago</p>
         <h1 id="page-title">Pago recibido</h1>
         <p class="lead">
-            Stripe aceptó el cobro. La confirmación definitiva de la cita llega por webhook;
-            si aún aparece Programada, espere unos segundos y actualice.
+            Gracias. El cobro de la consulta fue aceptado por Stripe.
+            Ya puede cerrar esta ventana; en recepción se actualizará el estado de la cita.
         </p>
-        @if ($payment)
-            <p class="form-status" role="status">Estado actual del pago: {{ $payment->estado }}.</p>
-        @endif
-        <p><a class="row-action" href="{{ route('appointments.show', $appointmentId) }}">Volver a la cita</a></p>
     </section>
 @endsection

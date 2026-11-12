@@ -34,6 +34,44 @@ final class ConsultationPaymentService
     }
 
     /**
+     * @return array{appointment: object, payment: object, amount: string, currency: string, checkout_url: ?string}
+     */
+    public function checkoutQrForAppointment(int $appointmentId, ?string $preferredUrl = null): array
+    {
+        $appointment = $this->appointments->getAppointmentById($appointmentId);
+        $payment = $this->payments->getLatestPaymentForAppointment($appointmentId);
+        if ($payment === null) {
+            throw new ConsultationNotPayable;
+        }
+
+        $status = (string) $payment->estado;
+        if (! in_array($status, ['Pendiente', 'Confirmado'], true)) {
+            throw new ConsultationNotPayable;
+        }
+
+        $checkoutUrl = null;
+        if ($status === 'Pendiente') {
+            $checkoutUrl = is_string($preferredUrl) && $preferredUrl !== '' ? $preferredUrl : null;
+            if ($checkoutUrl === null && is_string($payment->referencia_externa) && $payment->referencia_externa !== '') {
+                try {
+                    $session = $this->stripe->getCheckoutSession((string) $payment->referencia_externa);
+                    $checkoutUrl = $session['url'];
+                } catch (PaymentGatewayUnavailable) {
+                    $checkoutUrl = null;
+                }
+            }
+        }
+
+        return [
+            'appointment' => $appointment,
+            'payment' => $payment,
+            'amount' => number_format((float) $payment->monto, 2, '.', ''),
+            'currency' => strtoupper((string) $payment->moneda),
+            'checkout_url' => $checkoutUrl,
+        ];
+    }
+
+    /**
      * @return array{payment_id: int, url: string}
      */
     public function startConsultationCheckout(int $appointmentId, int $actorUserId): array

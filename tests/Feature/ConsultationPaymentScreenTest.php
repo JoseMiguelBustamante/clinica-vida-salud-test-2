@@ -32,7 +32,7 @@ class ConsultationPaymentScreenTest extends TestCase
         $this->assertSame([], $this->app['db']->getConnections());
     }
 
-    public function test_authorized_session_is_redirected_to_stripe_checkout_url(): void
+    public function test_authorized_session_is_redirected_to_the_qr_page(): void
     {
         $user = (new User)->forceFill(['id_usuario' => 17, 'activo' => true, 'id_rol' => 2]);
         $identities = Mockery::mock(IdentityRepository::class);
@@ -53,7 +53,14 @@ class ConsultationPaymentScreenTest extends TestCase
 
         $this->withSession([Auth::guard('web')->getName() => 17]);
         $this->post('/citas/9/pago/stripe')
-            ->assertRedirect('https://checkout.stripe.com/c/pay/cs_test_demo');
+            ->assertRedirect(route('appointments.payment.qr', 9))
+            ->assertSessionHas('checkout_url', 'https://checkout.stripe.com/c/pay/cs_test_demo');
+        $this->assertSame([], $this->app['db']->getConnections());
+    }
+
+    public function test_client_success_page_is_public(): void
+    {
+        $this->get('/citas/9/pago/exito')->assertOk()->assertSee('Pago recibido');
         $this->assertSame([], $this->app['db']->getConnections());
     }
 

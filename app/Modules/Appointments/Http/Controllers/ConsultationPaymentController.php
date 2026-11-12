@@ -34,11 +34,14 @@ final class ConsultationPaymentController
             $this->activity->record(
                 'Creación',
                 'Pagos',
-                'Checkout Stripe iniciado para la cita '.$cita,
+                'Checkout Stripe (QR) iniciado para la cita '.$cita,
                 $cita,
             );
 
-            return redirect()->away($result['url']);
+            return redirect()
+                ->route('appointments.payment.qr', $cita)
+                ->with('checkout_url', $result['url'])
+                ->with('status', 'QR listo: mostralo al cliente para que pague en su teléfono.');
         } catch (AppointmentNotFound) {
             return redirect()->route('appointments.index')
                 ->withErrors(['q' => 'No puede realizarse la operación solicitada.']);
@@ -56,30 +59,33 @@ final class ConsultationPaymentController
         }
     }
 
-    public function showConsultationPaymentSuccess(Request $request, int $cita): View|RedirectResponse
+    public function showConsultationPaymentQr(Request $request, int $cita): View|RedirectResponse
     {
         try {
-            $overview = $this->payments->overviewForAppointment($cita);
+            $display = $this->payments->checkoutQrForAppointment(
+                $cita,
+                $request->session()->get('checkout_url'),
+            );
         } catch (AppointmentNotFound) {
             return redirect()->route('appointments.index')
                 ->withErrors(['q' => 'No puede realizarse la operación solicitada.']);
+        } catch (ConsultationNotPayable) {
+            return redirect()->route('appointments.show', $cita)
+                ->withErrors(['q' => 'No hay un cobro pendiente o confirmado para mostrar.']);
         }
 
+        return view('appointments.payment-qr', $display);
+    }
+
+    public function showConsultationPaymentSuccess(int $cita): View
+    {
         return view('appointments.payment-success', [
             'appointmentId' => $cita,
-            'payment' => $overview['payment'],
         ]);
     }
 
-    public function showConsultationPaymentCancel(Request $request, int $cita): View|RedirectResponse
+    public function showConsultationPaymentCancel(int $cita): View
     {
-        try {
-            $this->payments->overviewForAppointment($cita);
-        } catch (AppointmentNotFound) {
-            return redirect()->route('appointments.index')
-                ->withErrors(['q' => 'No puede realizarse la operación solicitada.']);
-        }
-
         return view('appointments.payment-cancel', [
             'appointmentId' => $cita,
         ]);

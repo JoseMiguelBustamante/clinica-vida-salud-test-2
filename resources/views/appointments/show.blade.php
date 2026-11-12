@@ -112,17 +112,21 @@
                         </dd>
                     </div>
                 </dl>
+                @if ($paymentOverview['payment'] && $paymentOverview['payment']->estado === 'Pendiente')
+                    <p><a class="row-action" href="{{ route('appointments.payment.qr', $appointment->id_cita) }}">Ver QR de cobro</a></p>
+                    <p class="list-meta">Mostrá el QR al cliente. Si expiró, generá uno nuevo abajo.</p>
+                @endif
                 @if ($paymentOverview['can_start'] && $paymentOverview['configured'])
                     <form method="post" action="{{ route('appointments.payment.stripe', $appointment->id_cita, false) }}" class="status-form">
                         @csrf
-                        <button class="button button-inline" type="submit">Pagar consulta con Stripe</button>
+                        <button class="button button-inline" type="submit">Generar QR de cobro</button>
                     </form>
-                    <p class="list-meta">Abre Stripe Checkout (modo test, BOB). Al confirmar el cobro la cita pasa a Confirmada.</p>
+                    <p class="list-meta">Genera un QR/link Stripe (BOB) para que el cliente pague en su teléfono. Al confirmar el webhook, la cita pasa a Confirmada.</p>
                 @elseif ($paymentOverview['can_start'] && ! $paymentOverview['configured'])
                     <p class="list-meta">El cobro en línea no está configurado en este entorno.</p>
                 @elseif ($paymentOverview['payment'] && $paymentOverview['payment']->estado === 'Confirmado')
                     <p class="list-meta">La consulta ya está cobrada.</p>
-                @else
+                @elseif (! ($paymentOverview['payment'] && $paymentOverview['payment']->estado === 'Pendiente'))
                     <p class="list-meta">Esta cita no admite un nuevo cobro en línea.</p>
                 @endif
             </article>

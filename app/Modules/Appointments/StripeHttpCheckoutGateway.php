@@ -47,6 +47,26 @@ final class StripeHttpCheckoutGateway implements StripeCheckoutGateway
         }
     }
 
+    public function getCheckoutSession(string $sessionId): array
+    {
+        $response = Http::withToken((string) config('stripe.secret_key'))
+            ->get('https://api.stripe.com/v1/checkout/sessions/'.rawurlencode($sessionId));
+
+        if (! $response->successful()) {
+            Log::warning('[StripeHttpCheckoutGateway - getCheckoutSession] unable to retrieve session');
+            throw new PaymentGatewayUnavailable;
+        }
+
+        $url = $response->json('url');
+
+        return [
+            'id' => (string) $response->json('id'),
+            'url' => is_string($url) && $url !== '' ? $url : null,
+            'status' => ($status = $response->json('status')) !== null ? (string) $status : null,
+            'payment_status' => ($paymentStatus = $response->json('payment_status')) !== null ? (string) $paymentStatus : null,
+        ];
+    }
+
     public function refundPaymentIntent(string $paymentIntentId, string $idempotencyKey): void
     {
         $response = Http::asForm()

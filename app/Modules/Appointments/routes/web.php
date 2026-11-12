@@ -17,6 +17,15 @@ Route::middleware('web')->group(function (): void {
 Route::post('/pagos/stripe/webhook', [ConsultationPaymentController::class, 'handleStripeWebhook'])
     ->name('payments.stripe.webhook');
 
+Route::middleware('web')->group(function (): void {
+    Route::get('/citas/{cita}/pago/exito', [ConsultationPaymentController::class, 'showConsultationPaymentSuccess'])
+        ->name('appointments.payment.success')
+        ->whereNumber('cita');
+    Route::get('/citas/{cita}/pago/cancelado', [ConsultationPaymentController::class, 'showConsultationPaymentCancel'])
+        ->name('appointments.payment.cancel')
+        ->whereNumber('cita');
+});
+
 Route::middleware([
     'web',
     RequireActiveSession::class,
@@ -53,11 +62,8 @@ Route::middleware([
     Route::post('/citas/{cita}/pago/stripe', [ConsultationPaymentController::class, 'startConsultationCheckout'])
         ->name('appointments.payment.stripe')
         ->whereNumber('cita');
-    Route::get('/citas/{cita}/pago/exito', [ConsultationPaymentController::class, 'showConsultationPaymentSuccess'])
-        ->name('appointments.payment.success')
-        ->whereNumber('cita');
-    Route::get('/citas/{cita}/pago/cancelado', [ConsultationPaymentController::class, 'showConsultationPaymentCancel'])
-        ->name('appointments.payment.cancel')
+    Route::get('/citas/{cita}/pago/qr', [ConsultationPaymentController::class, 'showConsultationPaymentQr'])
+        ->name('appointments.payment.qr')
         ->whereNumber('cita');
 });
 

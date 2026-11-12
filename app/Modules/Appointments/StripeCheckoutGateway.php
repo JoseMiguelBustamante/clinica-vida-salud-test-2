@@ -16,6 +16,11 @@ interface StripeCheckoutGateway
 
     public function expireCheckoutSession(string $sessionId): void;
 
+    /**
+     * @return array{id: string, url: ?string, status: ?string, payment_status: ?string}
+     */
+    public function getCheckoutSession(string $sessionId): array;
+
     public function refundPaymentIntent(string $paymentIntentId, string $idempotencyKey): void;
 
     /**
