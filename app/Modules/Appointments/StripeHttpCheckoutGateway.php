@@ -6,6 +6,7 @@ namespace App\Modules\Appointments;
 
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
+use Throwable;
 
 final class StripeHttpCheckoutGateway implements StripeCheckoutGateway
 {
@@ -18,9 +19,15 @@ final class StripeHttpCheckoutGateway implements StripeCheckoutGateway
 
     public function createCheckoutSession(array $input): array
     {
-        $response = Http::asForm()
-            ->withToken((string) config('stripe.secret_key'))
-            ->post('https://api.stripe.com/v1/checkout/sessions', $this->sessionPayload($input));
+        try {
+            $response = Http::asForm()
+                ->timeout(20)
+                ->withToken((string) config('stripe.secret_key'))
+                ->post('https://api.stripe.com/v1/checkout/sessions', $this->sessionPayload($input));
+        } catch (Throwable $exception) {
+            Log::error('[StripeHttpCheckoutGateway - createCheckoutSession] '.$exception::class);
+            throw new PaymentGatewayUnavailable;
+        }
 
         if (! $response->successful()) {
             Log::error('[StripeHttpCheckoutGateway - createCheckoutSession] gateway rejected request');
@@ -38,9 +45,16 @@ final class StripeHttpCheckoutGateway implements StripeCheckoutGateway
 
     public function expireCheckoutSession(string $sessionId): void
     {
-        $response = Http::asForm()
-            ->withToken((string) config('stripe.secret_key'))
-            ->post('https://api.stripe.com/v1/checkout/sessions/'.rawurlencode($sessionId).'/expire');
+        try {
+            $response = Http::asForm()
+                ->timeout(15)
+                ->withToken((string) config('stripe.secret_key'))
+                ->post('https://api.stripe.com/v1/checkout/sessions/'.rawurlencode($sessionId).'/expire');
+        } catch (Throwable $exception) {
+            Log::warning('[StripeHttpCheckoutGateway - expireCheckoutSession] '.$exception::class);
+
+            return;
+        }
 
         if (! $response->successful() && $response->status() !== 400) {
             Log::warning('[StripeHttpCheckoutGateway - expireCheckoutSession] unable to expire session');
@@ -49,8 +63,14 @@ final class StripeHttpCheckoutGateway implements StripeCheckoutGateway
 
     public function getCheckoutSession(string $sessionId): array
     {
-        $response = Http::withToken((string) config('stripe.secret_key'))
-            ->get('https://api.stripe.com/v1/checkout/sessions/'.rawurlencode($sessionId));
+        try {
+            $response = Http::timeout(15)
+                ->withToken((string) config('stripe.secret_key'))
+                ->get('https://api.stripe.com/v1/checkout/sessions/'.rawurlencode($sessionId));
+        } catch (Throwable $exception) {
+            Log::warning('[StripeHttpCheckoutGateway - getCheckoutSession] '.$exception::class);
+            throw new PaymentGatewayUnavailable;
+        }
 
         if (! $response->successful()) {
             Log::warning('[StripeHttpCheckoutGateway - getCheckoutSession] unable to retrieve session');

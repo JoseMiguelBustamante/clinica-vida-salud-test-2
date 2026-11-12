@@ -166,9 +166,27 @@ final class AppointmentController
             }
 
             $paymentOverview = null;
+            $checkoutUrl = null;
             if (in_array(PermissionCatalog::PAY_CONSULTATIONS, $codes, true)) {
                 try {
                     $paymentOverview = $this->consultationPayments->overviewForAppointment($cita);
+                    $checkoutUrl = $request->session()->get('consultation_checkout_url_'.$cita);
+                    if (! is_string($checkoutUrl) || $checkoutUrl === '') {
+                        $checkoutUrl = null;
+                    }
+                    if ($checkoutUrl === null
+                        && $paymentOverview['payment'] !== null
+                        && (string) $paymentOverview['payment']->estado === 'Pendiente') {
+                        try {
+                            $display = $this->consultationPayments->checkoutQrForAppointment($cita);
+                            $checkoutUrl = $display['checkout_url'];
+                            if (is_string($checkoutUrl) && $checkoutUrl !== '') {
+                                $request->session()->put('consultation_checkout_url_'.$cita, $checkoutUrl);
+                            }
+                        } catch (Throwable $exception) {
+                            Log::warning('[AppointmentController - checkout url] '.$exception::class);
+                        }
+                    }
                 } catch (Throwable $exception) {
                     Log::error('[AppointmentController - payment overview] '.$exception::class);
                 }
@@ -179,6 +197,7 @@ final class AppointmentController
                 'reminder' => $reminder,
                 'canManageReminders' => $canManageReminders,
                 'paymentOverview' => $paymentOverview,
+                'checkoutUrl' => $checkoutUrl,
             ]);
         } catch (AppointmentNotFound) {
             return $restrictedToOwnAgenda

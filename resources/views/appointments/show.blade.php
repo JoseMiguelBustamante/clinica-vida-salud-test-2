@@ -112,9 +112,21 @@
                         </dd>
                     </div>
                 </dl>
-                @if ($paymentOverview['payment'] && $paymentOverview['payment']->estado === 'Pendiente')
+                @if (! empty($checkoutUrl))
+                    <div style="display:grid;gap:0.75rem;justify-items:start;margin:1rem 0">
+                        <img
+                            src="https://api.qrserver.com/v1/create-qr-code/?size=220x220&data={{ rawurlencode($checkoutUrl) }}"
+                            alt="Código QR para que el cliente pague la consulta"
+                            width="220"
+                            height="220"
+                        >
+                        <p class="list-meta">El cliente escanea este QR o abre el link en su celular. El personal no paga.</p>
+                        <p><a class="row-action" href="{{ $checkoutUrl }}" target="_blank" rel="noopener noreferrer">Abrir link de pago</a></p>
+                        <p class="list-meta" style="word-break:break-all">{{ $checkoutUrl }}</p>
+                    </div>
+                @elseif ($paymentOverview['payment'] && $paymentOverview['payment']->estado === 'Pendiente')
                     <p><a class="row-action" href="{{ route('appointments.payment.qr', $appointment->id_cita) }}">Ver QR de cobro</a></p>
-                    <p class="list-meta">Mostrá el QR al cliente. Si expiró, generá uno nuevo abajo.</p>
+                    <p class="list-meta">Hay un cobro Pendiente. Si el QR no aparece, generá uno nuevo abajo.</p>
                 @endif
                 @if ($paymentOverview['can_start'] && $paymentOverview['configured'])
                     <form method="post" action="{{ route('appointments.payment.stripe', $appointment->id_cita, false) }}" class="status-form">
@@ -126,7 +138,7 @@
                     <p class="list-meta">El cobro en línea no está configurado en este entorno.</p>
                 @elseif ($paymentOverview['payment'] && $paymentOverview['payment']->estado === 'Confirmado')
                     <p class="list-meta">La consulta ya está cobrada.</p>
-                @elseif (! ($paymentOverview['payment'] && $paymentOverview['payment']->estado === 'Pendiente'))
+                @elseif (! ($paymentOverview['payment'] && $paymentOverview['payment']->estado === 'Pendiente') && empty($checkoutUrl))
                     <p class="list-meta">Esta cita no admite un nuevo cobro en línea.</p>
                 @endif
             </article>

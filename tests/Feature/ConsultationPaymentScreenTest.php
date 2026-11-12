@@ -53,8 +53,8 @@ class ConsultationPaymentScreenTest extends TestCase
 
         $this->withSession([Auth::guard('web')->getName() => 17]);
         $this->post('/citas/9/pago/stripe')
-            ->assertRedirect(route('appointments.payment.qr', 9))
-            ->assertSessionHas('checkout_url', 'https://checkout.stripe.com/c/pay/cs_test_demo');
+            ->assertRedirect(route('appointments.show', 9))
+            ->assertSessionHas('consultation_checkout_url_9', 'https://checkout.stripe.com/c/pay/cs_test_demo');
         $this->assertSame([], $this->app['db']->getConnections());
     }
 

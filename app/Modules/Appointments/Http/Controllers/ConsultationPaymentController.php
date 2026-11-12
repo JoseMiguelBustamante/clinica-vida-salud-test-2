@@ -38,9 +38,10 @@ final class ConsultationPaymentController
                 $cita,
             );
 
+            $request->session()->put($this->checkoutSessionKey($cita), $result['url']);
+
             return redirect()
-                ->route('appointments.payment.qr', $cita)
-                ->with('checkout_url', $result['url'])
+                ->route('appointments.show', $cita)
                 ->with('status', 'QR listo: mostralo al cliente para que pague en su teléfono.');
         } catch (AppointmentNotFound) {
             return redirect()->route('appointments.index')
@@ -64,17 +65,30 @@ final class ConsultationPaymentController
         try {
             $display = $this->payments->checkoutQrForAppointment(
                 $cita,
-                $request->session()->get('checkout_url'),
+                $request->session()->get($this->checkoutSessionKey($cita)),
             );
+            if (is_string($display['checkout_url'] ?? null) && $display['checkout_url'] !== '') {
+                $request->session()->put($this->checkoutSessionKey($cita), $display['checkout_url']);
+            }
         } catch (AppointmentNotFound) {
             return redirect()->route('appointments.index')
                 ->withErrors(['q' => 'No puede realizarse la operación solicitada.']);
         } catch (ConsultationNotPayable) {
             return redirect()->route('appointments.show', $cita)
                 ->withErrors(['q' => 'No hay un cobro pendiente o confirmado para mostrar.']);
+        } catch (Throwable $exception) {
+            Log::error('[ConsultationPaymentController - showConsultationPaymentQr] '.$exception::class);
+
+            return redirect()->route('appointments.show', $cita)
+                ->withErrors(['q' => 'No fue posible mostrar el QR de cobro.']);
         }
 
         return view('appointments.payment-qr', $display);
+    }
+
+    private function checkoutSessionKey(int $appointmentId): string
+    {
+        return 'consultation_checkout_url_'.$appointmentId;
     }
 
     public function showConsultationPaymentSuccess(int $cita): View
