@@ -114,7 +114,7 @@ final class ReportService
         $rows = $this->appointments->getAppointmentsInRange($start, $end, null, null, null);
         $result['generated'] = true;
         $result['rows'] = $rows;
-        $result['totals'] = ['citas' => $rows->count()];
+        $result['totals'] = $this->appointmentStatusTotals($rows);
         $result['fecha'] = $date;
 
         return $result;
@@ -131,7 +131,7 @@ final class ReportService
         $rows = $this->appointments->getAppointmentsInRange($start, $end, (int) $physician->id_medico, null, null);
         $result['generated'] = true;
         $result['rows'] = $rows;
-        $result['totals'] = ['citas' => $rows->count()];
+        $result['totals'] = $this->appointmentStatusTotals($rows);
         $result['id_medico'] = (int) $physician->id_medico;
         $result['fecha_inicio'] = $startDate;
         $result['fecha_fin'] = $endDate;
@@ -150,7 +150,7 @@ final class ReportService
         $rows = $this->appointments->getAppointmentsInRange($start, $end, null, (int) $specialty->id_especialidad, null);
         $result['generated'] = true;
         $result['rows'] = $rows;
-        $result['totals'] = ['citas' => $rows->count()];
+        $result['totals'] = $this->appointmentStatusTotals($rows);
         $result['id_especialidad'] = (int) $specialty->id_especialidad;
         $result['fecha_inicio'] = $startDate;
         $result['fecha_fin'] = $endDate;
@@ -169,7 +169,7 @@ final class ReportService
         $rows = $this->appointments->getAppointmentsInRange($start, $end, null, null, $normalized);
         $result['generated'] = true;
         $result['rows'] = $rows;
-        $result['totals'] = ['citas' => $rows->count()];
+        $result['totals'] = $this->appointmentStatusTotals($rows);
         $result['estado'] = $normalized;
         $result['fecha_inicio'] = $startDate;
         $result['fecha_fin'] = $endDate;
@@ -238,10 +238,31 @@ final class ReportService
         $result['generated'] = true;
         $result['groups'] = $grouped;
         $result['rows'] = $appointments;
-        $result['totals'] = ['citas' => $appointments->count(), 'medicos' => $grouped->count()];
+        $result['totals'] = array_merge($this->appointmentStatusTotals($appointments), [
+            'medicos' => $grouped->count(),
+        ]);
         $result['fecha'] = $date;
 
         return $result;
+    }
+
+    /**
+     * @param  Collection<int, object>  $rows
+     * @return array{citas: int, Confirmada: int, Programada: int, Pendientes: int, Cancelada: int, Atendida: int, Inasistencia: int}
+     */
+    private function appointmentStatusTotals(Collection $rows): array
+    {
+        $programada = $rows->where('estado', 'Programada')->count();
+
+        return [
+            'citas' => $rows->count(),
+            'Confirmada' => $rows->where('estado', 'Confirmada')->count(),
+            'Programada' => $programada,
+            'Pendientes' => $programada,
+            'Cancelada' => $rows->where('estado', 'Cancelada')->count(),
+            'Atendida' => $rows->where('estado', 'Atendida')->count(),
+            'Inasistencia' => $rows->where('estado', 'Inasistencia')->count(),
+        ];
     }
 
     private function optionalType(?string $type): ?string

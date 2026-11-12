@@ -49,6 +49,7 @@ class ReportScreenTest extends TestCase
         $this->withSession([Auth::guard('web')->getName() => 17]);
         $this->get('/reportes')->assertOk()->assertSee('Reportes administrativos')
             ->assertSee('Citas programadas para una fecha')
+            ->assertSee('Generar reporte')
             ->assertSee('Seleccione un tipo de reporte')
             ->assertDontSee('Criterios aplicados');
         $this->assertSame([], $this->app['db']->getConnections());
@@ -87,8 +88,41 @@ class ReportScreenTest extends TestCase
         $this->withSession([Auth::guard('web')->getName() => 17]);
         $this->get('/reportes?tipo=citas_fecha&fecha=2026-11-01&generar=1')
             ->assertOk()->assertSee('Criterios aplicados')->assertSee('CIT-1')
-            ->assertSee('Total de citas: 1')->assertSee('Pediatría')
+            ->assertSee('Total de citas')->assertSee('Resultado del reporte')
+            ->assertSee('Exportar')->assertSee('PDF')->assertSee('CSV')->assertSee('Excel')
+            ->assertSee('Pediatría')
             ->assertDontSee('Nota clínica secreta');
+        $this->assertSame([], $this->app['db']->getConnections());
+    }
+
+    public function test_csv_export_downloads_without_clinical_notes(): void
+    {
+        $this->authorizeReports();
+        $this->mockCatalogLookups();
+        $appointments = $this->app->make(AppointmentRepository::class);
+        $appointments->shouldReceive('getAppointmentsInRange')->once()->andReturn(collect([
+            (object) [
+                'id_cita' => 21,
+                'codigo' => 'CIT-1',
+                'inicio' => '2026-11-01T08:00:00+00:00',
+                'fin' => '2026-11-01T08:30:00+00:00',
+                'estado' => 'Programada',
+                'id_medico' => 4,
+                'motivo_consulta' => 'Nota clínica secreta',
+                'paciente_nombres' => 'Ana',
+                'paciente_apellidos' => 'Rojas',
+                'medico_nombres' => 'Luis',
+                'medico_apellidos' => 'Soto',
+                'especialidad_nombre' => 'Pediatría',
+            ],
+        ]));
+
+        $this->withSession([Auth::guard('web')->getName() => 17]);
+        $response = $this->get('/reportes/exportar?tipo=citas_fecha&fecha=2026-11-01&formato=csv');
+        $response->assertOk();
+        $this->assertStringContainsString('text/csv', (string) $response->headers->get('content-type'));
+        $this->assertStringContainsString('CIT-1', $response->streamedContent());
+        $this->assertStringNotContainsString('Nota clínica secreta', $response->streamedContent());
         $this->assertSame([], $this->app['db']->getConnections());
     }
 
@@ -103,7 +137,8 @@ class ReportScreenTest extends TestCase
         $this->withSession([Auth::guard('web')->getName() => 17]);
         $this->get('/reportes?tipo=citas_fecha&fecha=2026-11-01&generar=1')
             ->assertOk()->assertSee('No hay datos para la consulta.')
-            ->assertSee('Total de citas: 0')
+            ->assertSee('Total de citas')
+            ->assertSee('Pendientes')
             ->assertDontSee('No fue posible generar el reporte.');
         $this->assertSame([], $this->app['db']->getConnections());
     }

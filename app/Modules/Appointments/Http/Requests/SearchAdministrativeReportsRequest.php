@@ -19,9 +19,12 @@ final class SearchAdministrativeReportsRequest extends FormRequest
         $types = 'citas_fecha,citas_medico,citas_especialidad,citas_estado,pacientes,totales_periodo,agenda_diaria';
         $generate = $this->input('generar') === '1';
         $type = (string) $this->input('tipo', '');
+        $exporting = $this->routeIs('reports.export');
+        $generate = $generate || $exporting;
         $rules = [
             'tipo' => [$generate ? 'required' : 'nullable', 'in:'.$types],
             'generar' => ['nullable', 'in:1'],
+            'formato' => [$exporting ? 'required' : 'nullable', 'in:csv,excel,pdf'],
             'fecha' => ['nullable', 'date_format:Y-m-d'],
             'fecha_inicio' => ['nullable', 'date_format:Y-m-d'],
             'fecha_fin' => ['nullable', 'date_format:Y-m-d'],
@@ -86,6 +89,8 @@ final class SearchAdministrativeReportsRequest extends FormRequest
             'id_especialidad.required' => 'Seleccione la especialidad del reporte.',
             'estado.required' => 'Seleccione el estado del reporte.',
             'estado.in' => 'El estado de la cita no es válido.',
+            'formato.required' => 'Seleccione el formato de exportación.',
+            'formato.in' => 'El formato de exportación no es válido.',
         ];
     }
 }

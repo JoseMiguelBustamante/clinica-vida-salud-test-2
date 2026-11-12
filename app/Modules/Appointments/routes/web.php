@@ -150,4 +150,5 @@ Route::middleware([
     RequirePermission::class.':'.PermissionCatalog::GENERATE_REPORTS,
 ])->group(function (): void {
     Route::get('/reportes', [ReportController::class, 'generateAdministrativeReport'])->name('reports.generate');
+    Route::get('/reportes/exportar', [ReportController::class, 'exportAdministrativeReport'])->name('reports.export');
 });

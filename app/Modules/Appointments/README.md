@@ -38,8 +38,9 @@ CU16 (`GET /reportes`, `reportes.generar`) is read-only for Administrador. The
 available reports are appointments on a date, by physician, specialty or status,
 registered patients, period totals of Atendida/Cancelada/Inasistencia, and each
 physician's daily agenda. Empty results are not an error. A processing failure
-is not shown as an empty list or a total of zero. CSV/PDF export is not
-implemented. Clinical notes and diagnoses are omitted.
+is not shown as an empty list or a total of zero. After generating a report the
+UI shows KPI cards and allows export as PDF, CSV or Excel
+(`GET /reportes/exportar`). Clinical notes and diagnoses are omitted.
 
 CU21 plans `recordatorio_cita` after a successful booking when the patient
 already had reminders enabled with a verified email. Confirmation is not the
