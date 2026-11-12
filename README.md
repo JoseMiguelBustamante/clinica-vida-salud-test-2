@@ -179,6 +179,12 @@ Do not place them in build arguments, source or transcripts. Keep `LOG_CHANNEL=s
 `QUEUE_FAILED_DRIVER=null`. Use a new isolated internal PostgreSQL service, not an
 existing application's database. No separate frontend service is required.
 
+For the optional CU16 report assistant, set `OPENAI_API_KEY` from
+[platform.openai.com](https://platform.openai.com) (API billing; ChatGPT Plus is
+not enough). Optional: `OPENAI_MODEL=gpt-4o-mini`, `OPENAI_BASE_URL`,
+`OPENAI_TIMEOUT`. Without the key the report UI still works; the assistant block
+explains that it is not configured.
+
 Persist **`/var/www/html/storage`** for file sessions, cache and future application
 files. Before starting Apache, the mount must contain `app/private`, `app/public`,
 `framework/cache/data`, `framework/cache/locks`, `framework/sessions`,

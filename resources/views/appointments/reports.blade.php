@@ -340,6 +340,37 @@
 
                 <p class="list-meta reports-result-footer">Mostrando {{ $recordCount }} de {{ $recordCount }} {{ $recordCount === 1 ? 'registro' : 'registros' }} · PDF abre una vista lista para imprimir o guardar.</p>
             </article>
+
+            <article class="list-card detail-card reports-ai-card" id="asistente-reporte">
+                <h2>Asistente del reporte</h2>
+                <p class="reports-filter-hint">Resume el resultado generado o formule una pregunta en lenguaje natural. La IA solo usa los datos de este reporte; no inventa citas ni muestra notas clínicas.</p>
+
+                @if (! ($aiConfigured ?? false))
+                    <p class="form-status" role="status">El asistente no está configurado. En Dokploy agregue <code>OPENAI_API_KEY</code> (API de platform.openai.com; ChatGPT Plus no alcanza) y opcionalmente <code>OPENAI_MODEL=gpt-4o-mini</code>.</p>
+                @endif
+
+                <form class="reports-ai-form" method="post" action="{{ route('reports.assistant', absolute: false) }}">
+                    @csrf
+                    @foreach ($query as $key => $value)
+                        <input type="hidden" name="{{ $key }}" value="{{ $value }}">
+                    @endforeach
+                    <div class="field">
+                        <label for="pregunta">Pregunta (opcional para resumir)</label>
+                        <textarea id="pregunta" name="pregunta" rows="3" maxlength="500" placeholder="Ejemplo: ¿Cuántas citas canceladas hubo y de qué especialidades?">{{ old('pregunta', $aiQuestion && $aiQuestion !== 'Resumen del reporte' ? $aiQuestion : '') }}</textarea>
+                    </div>
+                    <div class="reports-ai-actions">
+                        <button class="button button-inline button-quiet" type="submit" name="accion" value="resumir" @disabled(! ($aiConfigured ?? false))>Resumir</button>
+                        <button class="button" type="submit" name="accion" value="preguntar" @disabled(! ($aiConfigured ?? false))>Preguntar</button>
+                    </div>
+                </form>
+
+                @if (! empty($aiAnswer))
+                    <div class="reports-ai-answer" role="status">
+                        <p class="reports-kpi-label">{{ $aiQuestion ?: 'Respuesta' }}</p>
+                        <div class="reports-ai-answer-body">{!! nl2br(e($aiAnswer)) !!}</div>
+                    </div>
+                @endif
+            </article>
         @elseif ($selectedType === '')
             <p class="list-meta">Seleccione un tipo de reporte. Las fechas se completan solas; complete el resto de filtros si el tipo lo pide.</p>
         @else

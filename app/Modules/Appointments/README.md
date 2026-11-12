@@ -42,6 +42,13 @@ is not shown as an empty list or a total of zero. After generating a report the
 UI shows KPI cards and allows export as PDF, CSV or Excel
 (`GET /reportes/exportar`). Clinical notes and diagnoses are omitted.
 
+An optional report assistant (`POST /reportes/asistente`) summarizes the same
+generated sheet or answers a short natural-language question about it via the
+OpenAI HTTP API (`OPENAI_API_KEY` in Dokploy; `OPENAI_MODEL` defaults to
+`gpt-4o-mini`). ChatGPT Plus alone is not enough. The model receives only the
+administrative sheet already produced by CU16; it must not invent rows or expose
+clinical notes.
+
 CU21 plans `recordatorio_cita` after a successful booking when the patient
 already had reminders enabled with a verified email. Confirmation is not the
 trigger. The default lead time is 24 hours; if that instant has already passed

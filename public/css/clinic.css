@@ -1902,6 +1902,41 @@ a.code-link:hover {
     padding: 0.85rem 0 0;
 }
 
+.reports-ai-card {
+    margin-top: 1.25rem;
+}
+
+.reports-ai-form {
+    display: grid;
+    gap: 0.85rem;
+}
+
+.reports-ai-form textarea {
+    width: 100%;
+    resize: vertical;
+    min-height: 4.5rem;
+}
+
+.reports-ai-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.65rem;
+}
+
+.reports-ai-answer {
+    margin-top: 1rem;
+    padding: 0.95rem 1rem;
+    background: var(--clinic-panel);
+    border: 1px solid var(--clinic-line);
+    border-radius: 0.85rem;
+}
+
+.reports-ai-answer-body {
+    margin-top: 0.35rem;
+    white-space: normal;
+    line-height: 1.45;
+}
+
 .payment-qr-link {
     word-break: break-all;
 }

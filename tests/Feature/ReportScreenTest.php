@@ -10,6 +10,7 @@ use App\Modules\MedicalStaff\SpecialtyRepository;
 use App\Modules\Patients\PatientRepository;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Http;
 use Mockery;
 use RuntimeException;
 use Tests\TestCase;
@@ -91,6 +92,8 @@ class ReportScreenTest extends TestCase
             ->assertOk()->assertSee('Criterios aplicados')->assertSee('CIT-1')
             ->assertSee('Total de citas')->assertSee('Resultado del reporte')
             ->assertSee('Exportar')->assertSee('PDF')->assertSee('CSV')->assertSee('Excel')
+            ->assertSee('Asistente del reporte')
+            ->assertSee('OPENAI_API_KEY')
             ->assertSee('Pediatría')
             ->assertDontSee('Nota clínica secreta');
         $this->assertSame([], $this->app['db']->getConnections());
@@ -259,25 +262,190 @@ class ReportScreenTest extends TestCase
         $this->assertSame([], $this->app['db']->getConnections());
     }
 
-    private function authorizeReports(): void
+    public function test_report_assistant_summarizes_without_clinical_notes(): void
+    {
+        config([
+            'openai.api_key' => 'test-openai-key',
+            'openai.model' => 'gpt-4o-mini',
+            'openai.base_url' => 'https://api.openai.com/v1',
+        ]);
+        Http::fake([
+            'api.openai.com/*' => Http::response([
+                'choices' => [
+                    ['message' => ['content' => 'Hay 1 cita programada de Pediatría. No hay canceladas.']],
+                ],
+            ], 200),
+        ]);
+
+        $this->authorizeReports(2);
+        $this->mockCatalogLookups(2);
+        $appointments = $this->app->make(AppointmentRepository::class);
+        $appointments->shouldReceive('getAppointmentsInRange')->twice()->andReturn(collect([
+            (object) [
+                'id_cita' => 21,
+                'codigo' => 'CIT-1',
+                'inicio' => '2026-11-01T08:00:00+00:00',
+                'fin' => '2026-11-01T08:30:00+00:00',
+                'estado' => 'Programada',
+                'id_medico' => 4,
+                'motivo_consulta' => 'Nota clínica secreta',
+                'paciente_nombres' => 'Ana',
+                'paciente_apellidos' => 'Rojas',
+                'medico_nombres' => 'Luis',
+                'medico_apellidos' => 'Soto',
+                'especialidad_nombre' => 'Pediatría',
+            ],
+        ]));
+
+        $this->withSession([Auth::guard('web')->getName() => 17]);
+        $response = $this->from('/reportes?tipo=citas_fecha&fecha=2026-11-01&generar=1')
+            ->post('/reportes/asistente', [
+                'tipo' => 'citas_fecha',
+                'fecha' => '2026-11-01',
+                'accion' => 'resumir',
+                'generar' => '1',
+            ]);
+        $response->assertRedirect();
+        $this->followRedirects($response)
+            ->assertOk()
+            ->assertSee('Hay 1 cita programada de Pediatría. No hay canceladas.')
+            ->assertSee('Resumen del reporte')
+            ->assertDontSee('Nota clínica secreta');
+
+        Http::assertSent(function ($request): bool {
+            $body = $request->data();
+            $userContent = (string) ($body['messages'][1]['content'] ?? '');
+
+            return str_contains($request->url(), '/chat/completions')
+                && str_contains($userContent, 'CIT-1')
+                && ! str_contains($userContent, 'Nota clínica secreta');
+        });
+        $this->assertSame([], $this->app['db']->getConnections());
+    }
+
+    public function test_report_assistant_question_shows_model_answer(): void
+    {
+        config([
+            'openai.api_key' => 'test-openai-key',
+            'openai.model' => 'gpt-4o-mini',
+            'openai.base_url' => 'https://api.openai.com/v1',
+        ]);
+        Http::fake([
+            'api.openai.com/*' => Http::response([
+                'choices' => [
+                    ['message' => ['content' => 'Hay 0 canceladas en el reporte.']],
+                ],
+            ], 200),
+        ]);
+
+        $this->authorizeReports(2);
+        $this->mockCatalogLookups(2);
+        $appointments = $this->app->make(AppointmentRepository::class);
+        $appointments->shouldReceive('getAppointmentsInRange')->twice()->andReturn(collect([
+            (object) [
+                'id_cita' => 21,
+                'codigo' => 'CIT-1',
+                'inicio' => '2026-11-01T08:00:00+00:00',
+                'fin' => '2026-11-01T08:30:00+00:00',
+                'estado' => 'Programada',
+                'id_medico' => 4,
+                'motivo_consulta' => 'Nota clínica secreta',
+                'paciente_nombres' => 'Ana',
+                'paciente_apellidos' => 'Rojas',
+                'medico_nombres' => 'Luis',
+                'medico_apellidos' => 'Soto',
+                'especialidad_nombre' => 'Pediatría',
+            ],
+        ]));
+
+        $this->withSession([Auth::guard('web')->getName() => 17]);
+        $response = $this->from('/reportes?tipo=citas_fecha&fecha=2026-11-01&generar=1')
+            ->post('/reportes/asistente', [
+                'tipo' => 'citas_fecha',
+                'fecha' => '2026-11-01',
+                'accion' => 'preguntar',
+                'pregunta' => '¿Cuántas canceladas hubo?',
+                'generar' => '1',
+            ]);
+        $response->assertRedirect();
+        $this->followRedirects($response)
+            ->assertOk()
+            ->assertSee('Hay 0 canceladas en el reporte.')
+            ->assertSee('¿Cuántas canceladas hubo?')
+            ->assertDontSee('Nota clínica secreta');
+
+        Http::assertSent(function ($request): bool {
+            $body = $request->data();
+            $userContent = (string) ($body['messages'][1]['content'] ?? '');
+
+            return str_contains($request->url(), '/chat/completions')
+                && str_contains($userContent, 'CIT-1')
+                && ! str_contains($userContent, 'Nota clínica secreta');
+        });
+        $this->assertSame([], $this->app['db']->getConnections());
+    }
+
+    public function test_report_assistant_without_api_key_explains_configuration(): void
+    {
+        config(['openai.api_key' => '']);
+        $this->authorizeReports(2);
+        $this->mockCatalogLookups(2);
+        $appointments = $this->app->make(AppointmentRepository::class);
+        $appointments->shouldReceive('getAppointmentsInRange')->twice()->andReturn(collect());
+
+        $this->withSession([Auth::guard('web')->getName() => 17]);
+        $response = $this->from('/reportes?tipo=citas_fecha&fecha=2026-11-01&generar=1')
+            ->post('/reportes/asistente', [
+                'tipo' => 'citas_fecha',
+                'fecha' => '2026-11-01',
+                'accion' => 'resumir',
+                'generar' => '1',
+            ]);
+        $response->assertRedirect();
+        $this->followRedirects($response)
+            ->assertOk()
+            ->assertSee('OPENAI_API_KEY');
+        $this->assertSame([], $this->app['db']->getConnections());
+    }
+
+    public function test_report_assistant_requires_permission(): void
+    {
+        $user = (new User)->forceFill(['id_usuario' => 17, 'activo' => true, 'id_rol' => 2]);
+        $identities = Mockery::mock(IdentityRepository::class);
+        $identities->shouldReceive('active')->once()->with(17)->andReturn($user);
+        $identities->shouldReceive('permissionCodes')->once()->with($user)->andReturn([
+            PermissionCatalog::CONSULT_HISTORY,
+        ]);
+        $this->app->instance(IdentityRepository::class, $identities);
+
+        $this->withSession([Auth::guard('web')->getName() => 17]);
+        $this->post('/reportes/asistente', [
+            'tipo' => 'citas_fecha',
+            'fecha' => '2026-11-01',
+            'accion' => 'resumir',
+        ])->assertForbidden();
+        $this->assertSame([], $this->app['db']->getConnections());
+    }
+
+    private function authorizeReports(int $times = 1): void
     {
         $user = (new User)->forceFill(['id_usuario' => 17, 'activo' => true, 'id_rol' => 1]);
         $identities = Mockery::mock(IdentityRepository::class);
-        $identities->shouldReceive('active')->once()->with(17)->andReturn($user);
-        $identities->shouldReceive('permissionCodes')->once()->with($user)->andReturn([PermissionCatalog::GENERATE_REPORTS]);
+        $identities->shouldReceive('active')->times($times)->with(17)->andReturn($user);
+        $identities->shouldReceive('permissionCodes')->times($times)->with($user)->andReturn([PermissionCatalog::GENERATE_REPORTS]);
         $this->app->instance(IdentityRepository::class, $identities);
     }
 
-    private function mockCatalogLookups(): void
+    private function mockCatalogLookups(int $times = 1): void
     {
         $appointments = Mockery::mock(AppointmentRepository::class);
-        $appointments->shouldReceive('getRegisteredPhysicians')->once()->andReturn(collect([
+        $appointments->shouldReceive('getRegisteredPhysicians')->times($times)->andReturn(collect([
             (object) ['id_medico' => 4, 'nombres' => 'Luis', 'apellidos' => 'Soto', 'registro_profesional' => 'MP-1', 'activo' => true],
         ]));
         $this->app->instance(AppointmentRepository::class, $appointments);
 
         $specialties = Mockery::mock(SpecialtyRepository::class);
-        $specialties->shouldReceive('getAllSpecialties')->once()->with(null)->andReturn(collect([
+        $specialties->shouldReceive('getAllSpecialties')->times($times)->with(null)->andReturn(collect([
             (object) ['id_especialidad' => 3, 'nombre' => 'Pediatría', 'activo' => true],
         ]));
         $this->app->instance(SpecialtyRepository::class, $specialties);

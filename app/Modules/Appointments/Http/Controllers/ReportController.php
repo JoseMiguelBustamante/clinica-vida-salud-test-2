@@ -4,8 +4,12 @@ declare(strict_types=1);
 
 namespace App\Modules\Appointments\Http\Controllers;
 
+use App\Modules\Appointments\Http\Requests\AskReportAssistantRequest;
 use App\Modules\Appointments\Http\Requests\SearchAdministrativeReportsRequest;
 use App\Modules\Appointments\InvalidReportInput;
+use App\Modules\Appointments\ReportAiNotConfigured;
+use App\Modules\Appointments\ReportAiService;
+use App\Modules\Appointments\ReportAiUnavailable;
 use App\Modules\Appointments\ReportCriterionInvalid;
 use App\Modules\Appointments\ReportDateDefaults;
 use App\Modules\Appointments\ReportExportService;
@@ -22,11 +26,12 @@ final class ReportController
     public function __construct(
         private ReportService $reports,
         private ReportExportService $exports,
+        private ReportAiService $assistant,
     ) {}
 
     public function generateAdministrativeReport(SearchAdministrativeReportsRequest $request): View
     {
-        $payload = $this->buildReport($request);
+        $payload = $this->buildReport($request->validated());
         $result = $payload['result'];
         $status = $payload['status'];
 
@@ -53,10 +58,13 @@ final class ReportController
             'id_especialidad' => $result['id_especialidad'],
             'estado' => $result['estado'],
             'status' => $status,
-            'query' => $this->exportQuery($request),
+            'query' => $this->queryFromInput($request->validated()),
             'presetToday' => ReportDateDefaults::today(),
             'presetWeekStart' => ReportDateDefaults::weekStart(),
             'presetMonthStart' => ReportDateDefaults::monthStart(),
+            'aiConfigured' => $this->assistant->isConfigured(),
+            'aiAnswer' => session('ai_answer'),
+            'aiQuestion' => session('ai_question'),
         ]);
     }
 
@@ -64,10 +72,10 @@ final class ReportController
     {
         $validated = $request->validated();
         $format = (string) ($validated['formato'] ?? '');
-        $payload = $this->buildReport($request, forceGenerate: true);
+        $payload = $this->buildReport($validated, forceGenerate: true);
         if ($payload['status'] !== null || ! $payload['result']['generated']) {
             return redirect()
-                ->route('reports.generate', $this->exportQuery($request))
+                ->route('reports.generate', $this->queryFromInput($validated))
                 ->withErrors(['tipo' => $payload['status'] ?? 'No fue posible exportar el reporte.']);
         }
 
@@ -79,17 +87,57 @@ final class ReportController
             'excel' => $this->exports->toExcelResponse($sheet, $basename),
             'pdf' => $this->exports->toPdfResponse($sheet, $basename),
             default => redirect()
-                ->route('reports.generate', $this->exportQuery($request))
+                ->route('reports.generate', $this->queryFromInput($validated))
                 ->withErrors(['tipo' => 'El formato de exportación no es válido.']),
         };
     }
 
+    public function askReportAssistant(AskReportAssistantRequest $request): RedirectResponse
+    {
+        $validated = $request->validated();
+        $query = $this->queryFromInput($validated);
+        $payload = $this->buildReport($validated, forceGenerate: true);
+        if ($payload['status'] !== null || ! $payload['result']['generated']) {
+            return redirect()
+                ->route('reports.generate', $query)
+                ->withErrors(['tipo' => $payload['status'] ?? 'No fue posible preparar el reporte para el asistente.']);
+        }
+
+        $sheet = $this->exports->spreadsheet($payload['result']);
+        $action = (string) $validated['accion'];
+        $question = $action === 'preguntar' ? (string) ($validated['pregunta'] ?? '') : null;
+
+        try {
+            $answer = $this->assistant->answerAboutReport($sheet, $question);
+        } catch (ReportAiNotConfigured) {
+            return redirect()
+                ->route('reports.generate', $query)
+                ->withErrors(['pregunta' => 'El asistente no está configurado. Agregue OPENAI_API_KEY en Dokploy.']);
+        } catch (ReportAiUnavailable) {
+            return redirect()
+                ->route('reports.generate', $query)
+                ->withErrors(['pregunta' => 'No fue posible obtener una respuesta del asistente.']);
+        } catch (Throwable $exception) {
+            Log::error('[ReportController - askReportAssistant] '.$exception::class);
+
+            return redirect()
+                ->route('reports.generate', $query)
+                ->withErrors(['pregunta' => 'No fue posible obtener una respuesta del asistente.']);
+        }
+
+        return redirect()
+            ->route('reports.generate', $query)
+            ->with('ai_answer', $answer)
+            ->with('ai_question', $question ?? 'Resumen del reporte');
+    }
+
     /**
+     * @param  array<string, mixed>  $input
      * @return array{result: array<string, mixed>, status: ?string}
      */
-    private function buildReport(SearchAdministrativeReportsRequest $request, bool $forceGenerate = false): array
+    private function buildReport(array $input, bool $forceGenerate = false): array
     {
-        $input = ReportDateDefaults::apply($request->validated());
+        $input = ReportDateDefaults::apply($input);
         $generate = $forceGenerate
             || ($input['generar'] ?? null) === '1'
             || $this->isReadyToAutoGenerate($input);
@@ -132,11 +180,12 @@ final class ReportController
     }
 
     /**
+     * @param  array<string, mixed>  $input
      * @return array<string, string>
      */
-    private function exportQuery(SearchAdministrativeReportsRequest $request): array
+    private function queryFromInput(array $input): array
     {
-        $input = ReportDateDefaults::apply($request->validated());
+        $input = ReportDateDefaults::apply($input);
         $query = ['generar' => '1'];
         foreach (['tipo', 'fecha', 'fecha_inicio', 'fecha_fin', 'id_medico', 'id_especialidad', 'estado'] as $key) {
             if (isset($input[$key]) && $input[$key] !== null && $input[$key] !== '') {

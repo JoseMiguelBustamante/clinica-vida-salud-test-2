@@ -151,4 +151,5 @@ Route::middleware([
 ])->group(function (): void {
     Route::get('/reportes', [ReportController::class, 'generateAdministrativeReport'])->name('reports.generate');
     Route::get('/reportes/exportar', [ReportController::class, 'exportAdministrativeReport'])->name('reports.export');
+    Route::post('/reportes/asistente', [ReportController::class, 'askReportAssistant'])->name('reports.assistant');
 });
