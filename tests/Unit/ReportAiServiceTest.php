@@ -10,9 +10,13 @@ use Tests\TestCase;
 
 class ReportAiServiceTest extends TestCase
 {
-    public function test_missing_api_key_is_not_configured(): void
+    public function test_missing_env_settings_are_not_configured(): void
     {
-        config(['openai.api_key' => '']);
+        config([
+            'openai.api_key' => '',
+            'openai.model' => '',
+            'openai.base_url' => '',
+        ]);
 
         $this->assertFalse((new ReportAiService)->isConfigured());
         $this->expectException(ReportAiNotConfigured::class);

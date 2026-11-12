@@ -112,7 +112,7 @@ final class ReportController
         } catch (ReportAiNotConfigured) {
             return redirect()
                 ->route('reports.generate', $query)
-                ->withErrors(['pregunta' => 'El asistente no está configurado. Agregue OPENAI_API_KEY en Dokploy.']);
+                ->withErrors(['pregunta' => 'El asistente no está configurado. Defina OPENAI_API_KEY, OPENAI_BASE_URL y OPENAI_MODEL en Dokploy.']);
         } catch (ReportAiUnavailable) {
             return redirect()
                 ->route('reports.generate', $query)

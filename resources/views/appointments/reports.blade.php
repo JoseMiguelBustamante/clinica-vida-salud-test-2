@@ -346,7 +346,7 @@
                 <p class="reports-filter-hint">Resume el resultado generado o formule una pregunta en lenguaje natural. La IA solo usa los datos de este reporte; no inventa citas ni muestra notas clínicas.</p>
 
                 @if (! ($aiConfigured ?? false))
-                    <p class="form-status" role="status">El asistente no está configurado. En Dokploy agregue <code>OPENAI_API_KEY</code> (API de platform.openai.com; ChatGPT Plus no alcanza) y opcionalmente <code>OPENAI_MODEL=gpt-4o-mini</code>.</p>
+                    <p class="form-status" role="status">El asistente no está configurado. En Dokploy defina <code>OPENAI_API_KEY</code>, <code>OPENAI_BASE_URL</code> y <code>OPENAI_MODEL</code> del proveedor que use (API compatible; la suscripción del chat no alcanza).</p>
                 @endif
 
                 <form class="reports-ai-form" method="post" action="{{ route('reports.assistant', absolute: false) }}">

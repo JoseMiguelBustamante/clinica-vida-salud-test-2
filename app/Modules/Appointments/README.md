@@ -43,11 +43,11 @@ UI shows KPI cards and allows export as PDF, CSV or Excel
 (`GET /reportes/exportar`). Clinical notes and diagnoses are omitted.
 
 An optional report assistant (`POST /reportes/asistente`) summarizes the same
-generated sheet or answers a short natural-language question about it via the
-OpenAI HTTP API (`OPENAI_API_KEY` in Dokploy; `OPENAI_MODEL` defaults to
-`gpt-4o-mini`). ChatGPT Plus alone is not enough. The model receives only the
-administrative sheet already produced by CU16; it must not invent rows or expose
-clinical notes.
+generated sheet or answers a short natural-language question about it via an
+OpenAI-compatible HTTP API. Dokploy must supply `OPENAI_API_KEY`,
+`OPENAI_BASE_URL` and `OPENAI_MODEL` (no hardcoded vendor defaults). A chat-only
+subscription is not enough. The model receives only the administrative sheet
+already produced by CU16; it must not invent rows or expose clinical notes.
 
 CU21 plans `recordatorio_cita` after a successful booking when the patient
 already had reminders enabled with a verified email. Confirmation is not the

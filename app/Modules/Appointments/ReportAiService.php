@@ -12,7 +12,9 @@ final class ReportAiService
 {
     public function isConfigured(): bool
     {
-        return trim((string) config('openai.api_key', '')) !== '';
+        return $this->apiKey() !== ''
+            && $this->model() !== ''
+            && $this->baseUrl() !== '';
     }
 
     /**
@@ -29,10 +31,10 @@ final class ReportAiService
 
         try {
             $response = Http::timeout((int) config('openai.timeout', 30))
-                ->withToken((string) config('openai.api_key'))
+                ->withToken($this->apiKey())
                 ->acceptJson()
-                ->post(rtrim((string) config('openai.base_url'), '/').'/chat/completions', [
-                    'model' => (string) config('openai.model', 'gpt-4o-mini'),
+                ->post($this->baseUrl().'/chat/completions', [
+                    'model' => $this->model(),
                     'temperature' => 0.2,
                     'messages' => [
                         ['role' => 'system', 'content' => $this->systemPrompt()],
@@ -118,5 +120,20 @@ final class ReportAiService
             'truncated' => $truncated,
             'total_rows' => $total,
         ];
+    }
+
+    private function apiKey(): string
+    {
+        return trim((string) config('openai.api_key', ''));
+    }
+
+    private function model(): string
+    {
+        return trim((string) config('openai.model', ''));
+    }
+
+    private function baseUrl(): string
+    {
+        return rtrim(trim((string) config('openai.base_url', '')), '/');
     }
 }

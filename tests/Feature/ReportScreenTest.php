@@ -94,6 +94,8 @@ class ReportScreenTest extends TestCase
             ->assertSee('Exportar')->assertSee('PDF')->assertSee('CSV')->assertSee('Excel')
             ->assertSee('Asistente del reporte')
             ->assertSee('OPENAI_API_KEY')
+            ->assertSee('OPENAI_BASE_URL')
+            ->assertSee('OPENAI_MODEL')
             ->assertSee('Pediatría')
             ->assertDontSee('Nota clínica secreta');
         $this->assertSame([], $this->app['db']->getConnections());
@@ -387,7 +389,11 @@ class ReportScreenTest extends TestCase
 
     public function test_report_assistant_without_api_key_explains_configuration(): void
     {
-        config(['openai.api_key' => '']);
+        config([
+            'openai.api_key' => '',
+            'openai.model' => '',
+            'openai.base_url' => '',
+        ]);
         $this->authorizeReports(2);
         $this->mockCatalogLookups(2);
         $appointments = $this->app->make(AppointmentRepository::class);
@@ -404,7 +410,9 @@ class ReportScreenTest extends TestCase
         $response->assertRedirect();
         $this->followRedirects($response)
             ->assertOk()
-            ->assertSee('OPENAI_API_KEY');
+            ->assertSee('OPENAI_API_KEY')
+            ->assertSee('OPENAI_BASE_URL')
+            ->assertSee('OPENAI_MODEL');
         $this->assertSame([], $this->app['db']->getConnections());
     }
 

@@ -4,20 +4,20 @@ return [
 
     /*
     |--------------------------------------------------------------------------
-    | OpenAI API (report assistant)
+    | Report assistant LLM (OpenAI-compatible HTTP API)
     |--------------------------------------------------------------------------
     |
-    | Configure these in Dokploy (or the runtime environment). Never commit
-    | secret values into source control. ChatGPT Plus alone is not enough;
-    | this needs an API key from platform.openai.com.
+    | Set these only in Dokploy / runtime environment. Do not commit secrets.
+    | Any OpenAI-compatible provider works when BASE_URL + MODEL + KEY match
+    | that provider. There are no vendor defaults in source.
     |
     */
 
     'api_key' => env('OPENAI_API_KEY'),
 
-    'model' => env('OPENAI_MODEL', 'gpt-4o-mini'),
+    'model' => env('OPENAI_MODEL'),
 
-    'base_url' => env('OPENAI_BASE_URL', 'https://api.openai.com/v1'),
+    'base_url' => env('OPENAI_BASE_URL'),
 
     'timeout' => (int) env('OPENAI_TIMEOUT', 30),
 
