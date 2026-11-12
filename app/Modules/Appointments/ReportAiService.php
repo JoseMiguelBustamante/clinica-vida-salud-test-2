@@ -51,20 +51,31 @@ final class ReportAiService
      */
     public function planReportInstruction(string $instruction, string $today): array
     {
-        if (! $this->isConfigured()) {
-            throw new ReportAiNotConfigured;
-        }
-
         $trimmed = trim($instruction);
         if ($trimmed === '') {
             return $this->clarifyPlan(['Indique qué reporte necesita y el período o fecha a consultar.']);
         }
 
-        $content = $this->completion(
-            $this->planningSystemPrompt($today),
-            'Instrucción del usuario: '.$trimmed,
-            'planReportInstruction',
-        );
+        $deterministic = $this->deterministicPlan($trimmed, $today);
+        if ($deterministic !== null) {
+            return $this->normalizePlan($deterministic);
+        }
+
+        if (! $this->isConfigured()) {
+            throw new ReportAiNotConfigured;
+        }
+
+        try {
+            $content = $this->completion(
+                $this->planningSystemPrompt($today),
+                'Instrucción del usuario: '.$trimmed,
+                'planReportInstruction',
+            );
+        } catch (ReportAiUnavailable) {
+            return $this->clarifyPlan([
+                'No pude contactar al modelo para interpretar la instrucción. Escriba el tipo y las fechas en formato AAAA-MM-DD, por ejemplo: Agenda diaria de cada médico para el '.$today.'.',
+            ]);
+        }
 
         $decoded = $this->decodePlanJson($content);
         if ($decoded === null) {
@@ -116,33 +127,160 @@ final class ReportAiService
     private function completion(string $system, string $user, string $context): string
     {
         try {
-            $response = Http::timeout((int) config('openai.timeout', 30))
+            $request = Http::timeout((int) config('openai.timeout', 30))
                 ->withToken($this->apiKey())
-                ->acceptJson()
-                ->post($this->baseUrl().'/chat/completions', [
-                    'model' => $this->model(),
-                    'temperature' => 0.2,
-                    'messages' => [
-                        ['role' => 'system', 'content' => $system],
-                        ['role' => 'user', 'content' => $user],
-                    ],
-                ]);
+                ->acceptJson();
+
+            $referer = trim((string) config('openai.http_referer', ''));
+            $title = trim((string) config('openai.app_title', ''));
+            if ($referer !== '') {
+                $request = $request->withHeaders(['HTTP-Referer' => $referer]);
+            }
+            if ($title !== '') {
+                $request = $request->withHeaders(['X-Title' => $title]);
+            }
+
+            $response = $request->post($this->baseUrl().'/chat/completions', [
+                'model' => $this->model(),
+                'temperature' => 0.2,
+                'messages' => [
+                    ['role' => 'system', 'content' => $system],
+                    ['role' => 'user', 'content' => $user],
+                ],
+            ]);
         } catch (Throwable $exception) {
             Log::error('[ReportAiService - '.$context.'] '.$exception::class);
             throw new ReportAiUnavailable;
         }
 
         if (! $response->successful()) {
-            Log::error('[ReportAiService - '.$context.'] gateway rejected request');
+            Log::error('[ReportAiService - '.$context.'] gateway rejected request status='.$response->status());
             throw new ReportAiUnavailable;
         }
 
-        $content = $response->json('choices.0.message.content');
-        if (! is_string($content) || trim($content) === '') {
+        $content = $this->messageContent($response->json('choices.0.message.content'));
+        if ($content === null) {
+            Log::error('[ReportAiService - '.$context.'] empty model content');
             throw new ReportAiUnavailable;
         }
 
-        return trim($content);
+        return $content;
+    }
+
+    /**
+     * Resolve obvious report requests without calling the model.
+     *
+     * @return array<string, mixed>|null
+     */
+    private function deterministicPlan(string $instruction, string $today): ?array
+    {
+        $normalized = mb_strtolower($instruction);
+        $dates = [];
+        if (preg_match_all('/\b(\d{4}-\d{2}-\d{2})\b/', $instruction, $matches) > 0) {
+            $dates = $matches[1];
+        }
+
+        $pregunta = null;
+        if (preg_match('/\b(decime|dime|cu[aá]ntas?|cu[aá]ntos?|resum[ií]|pregunt)\b/u', $normalized) === 1) {
+            $pregunta = $instruction;
+        }
+
+        $base = [
+            'status' => 'ready',
+            'questions' => [],
+            'tipo' => null,
+            'fecha' => null,
+            'fecha_inicio' => null,
+            'fecha_fin' => null,
+            'id_medico' => null,
+            'id_especialidad' => null,
+            'estado' => null,
+            'pregunta' => $pregunta,
+        ];
+
+        if (str_contains($normalized, 'agenda diaria') || str_contains($normalized, 'agenda de cada m')) {
+            $base['tipo'] = ReportService::TYPE_DAILY_AGENDA;
+            $base['fecha'] = $dates[0] ?? null;
+
+            return $base;
+        }
+
+        if (str_contains($normalized, 'pacientes registrados') || $normalized === 'pacientes') {
+            $base['tipo'] = ReportService::TYPE_REGISTERED_PATIENTS;
+
+            return $base;
+        }
+
+        if (str_contains($normalized, 'totales') || (str_contains($normalized, 'atendidas') && str_contains($normalized, 'canceladas'))) {
+            $base['tipo'] = ReportService::TYPE_PERIOD_TOTALS;
+            $base['fecha_inicio'] = $dates[0] ?? null;
+            $base['fecha_fin'] = $dates[1] ?? ($dates[0] ?? null);
+
+            return $base;
+        }
+
+        foreach (['programada', 'confirmada', 'atendida', 'cancelada', 'inasistencia'] as $estado) {
+            if (str_contains($normalized, 'estado '.$estado) || str_contains($normalized, 'citas en estado '.$estado) || str_contains($normalized, 'citas '.$estado)) {
+                $base['tipo'] = ReportService::TYPE_APPOINTMENTS_BY_STATUS;
+                $base['estado'] = match ($estado) {
+                    'programada' => 'Programada',
+                    'confirmada' => 'Confirmada',
+                    'atendida' => 'Atendida',
+                    'cancelada' => 'Cancelada',
+                    'inasistencia' => 'Inasistencia',
+                };
+                $base['fecha_inicio'] = $dates[0] ?? null;
+                $base['fecha_fin'] = $dates[1] ?? ($dates[0] ?? null);
+
+                return $base;
+            }
+        }
+
+        if (str_contains($normalized, 'citas del ') || str_contains($normalized, 'citas para el ') || str_contains($normalized, 'citas programadas')) {
+            $base['tipo'] = ReportService::TYPE_APPOINTMENTS_ON_DATE;
+            $base['fecha'] = $dates[0] ?? null;
+
+            return $base;
+        }
+
+        if (str_contains($normalized, 'hoy') && (str_contains($normalized, 'agenda') || str_contains($normalized, 'citas'))) {
+            $base['tipo'] = str_contains($normalized, 'agenda')
+                ? ReportService::TYPE_DAILY_AGENDA
+                : ReportService::TYPE_APPOINTMENTS_ON_DATE;
+            $base['fecha'] = $today;
+
+            return $base;
+        }
+
+        return null;
+    }
+
+    private function messageContent(mixed $content): ?string
+    {
+        if (is_string($content)) {
+            $trimmed = trim($content);
+
+            return $trimmed === '' ? null : $trimmed;
+        }
+
+        if (! is_array($content)) {
+            return null;
+        }
+
+        $parts = [];
+        foreach ($content as $part) {
+            if (is_string($part) && trim($part) !== '') {
+                $parts[] = trim($part);
+            } elseif (is_array($part) && isset($part['text']) && is_string($part['text']) && trim($part['text']) !== '') {
+                $parts[] = trim($part['text']);
+            }
+        }
+
+        if ($parts === []) {
+            return null;
+        }
+
+        return implode("\n", $parts);
     }
 
     /**

@@ -65,6 +65,26 @@ class ReportAiServiceTest extends TestCase
         (new ReportAiService)->answerAboutReport($this->sheet(), null);
     }
 
+    public function test_plan_detects_daily_agenda_without_calling_the_provider(): void
+    {
+        config([
+            'openai.api_key' => '',
+            'openai.model' => '',
+            'openai.base_url' => '',
+        ]);
+        Http::fake();
+
+        $plan = (new ReportAiService)->planReportInstruction(
+            'Agenda diaria de cada médico para el 2026-11-12',
+            '2026-11-12',
+        );
+
+        $this->assertSame('ready', $plan['status']);
+        $this->assertSame('agenda_diaria', $plan['tipo']);
+        $this->assertSame('2026-11-12', $plan['fecha']);
+        Http::assertNothingSent();
+    }
+
     public function test_plan_asks_when_required_dates_are_missing(): void
     {
         config([
@@ -103,29 +123,11 @@ class ReportAiServiceTest extends TestCase
     public function test_plan_returns_ready_criteria_from_instruction(): void
     {
         config([
-            'openai.api_key' => 'test-key',
-            'openai.model' => 'gpt-4o-mini',
-            'openai.base_url' => 'https://api.openai.com/v1',
+            'openai.api_key' => '',
+            'openai.model' => '',
+            'openai.base_url' => '',
         ]);
-        Http::fake([
-            'api.openai.com/v1/chat/completions' => Http::response([
-                'choices' => [[
-                    'message' => [
-                        'content' => json_encode([
-                            'status' => 'ready',
-                            'tipo' => 'citas_fecha',
-                            'fecha' => '2026-11-10',
-                            'fecha_inicio' => null,
-                            'fecha_fin' => null,
-                            'id_medico' => null,
-                            'id_especialidad' => null,
-                            'estado' => null,
-                            'pregunta' => '¿Cuántas canceladas hubo?',
-                        ], JSON_UNESCAPED_UNICODE),
-                    ],
-                ]],
-            ], 200),
-        ]);
+        Http::fake();
 
         $plan = (new ReportAiService)->planReportInstruction(
             'Armá citas del 2026-11-10 y decime cuántas canceladas hubo',
@@ -135,8 +137,9 @@ class ReportAiServiceTest extends TestCase
         $this->assertSame('ready', $plan['status']);
         $this->assertSame('citas_fecha', $plan['tipo']);
         $this->assertSame('2026-11-10', $plan['fecha']);
-        $this->assertSame('¿Cuántas canceladas hubo?', $plan['pregunta']);
+        $this->assertSame('Armá citas del 2026-11-10 y decime cuántas canceladas hubo', $plan['pregunta']);
         $this->assertSame([], $plan['questions']);
+        Http::assertNothingSent();
     }
 
     /**

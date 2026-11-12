@@ -539,29 +539,13 @@ class ReportScreenTest extends TestCase
             'openai.model' => 'gpt-4o-mini',
             'openai.base_url' => 'https://api.openai.com/v1',
         ]);
-        Http::fakeSequence()
-            ->push([
-                'choices' => [[
-                    'message' => [
-                        'content' => json_encode([
-                            'status' => 'ready',
-                            'tipo' => 'citas_fecha',
-                            'fecha' => '2026-11-01',
-                            'fecha_inicio' => null,
-                            'fecha_fin' => null,
-                            'id_medico' => null,
-                            'id_especialidad' => null,
-                            'estado' => null,
-                            'pregunta' => '¿Cuántas canceladas hubo?',
-                        ], JSON_UNESCAPED_UNICODE),
-                    ],
-                ]],
-            ], 200)
-            ->push([
+        Http::fake([
+            'api.openai.com/*' => Http::response([
                 'choices' => [[
                     'message' => ['content' => 'Hay 0 canceladas en el reporte.'],
                 ]],
-            ], 200);
+            ], 200),
+        ]);
 
         $this->authorizeReports(2);
         $this->mockCatalogLookups(2);

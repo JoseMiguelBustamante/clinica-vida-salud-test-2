@@ -141,7 +141,20 @@ final class ReportController
 
             $sheet = $this->exports->spreadsheet($payload['result']);
             $question = $action === 'preguntar' ? $instruction : null;
-            $answer = $this->assistant->answerAboutReport($sheet, $question);
+
+            try {
+                $answer = $this->assistant->answerAboutReport($sheet, $question);
+            } catch (ReportAiNotConfigured) {
+                return redirect()
+                    ->route('reports.generate', $query)
+                    ->withErrors(['pregunta' => 'El reporte se generó, pero el asistente no está configurado. Defina OPENAI_API_KEY, OPENAI_BASE_URL y OPENAI_MODEL en Dokploy.'])
+                    ->with('ai_question', $instruction !== '' ? $instruction : null);
+            } catch (ReportAiUnavailable) {
+                return redirect()
+                    ->route('reports.generate', $query)
+                    ->withErrors(['pregunta' => 'El reporte se generó, pero no fue posible obtener la respuesta de la IA. Revise el modelo/créditos en Dokploy o reintente.'])
+                    ->with('ai_question', $instruction !== '' ? $instruction : null);
+            }
         } catch (ReportAiNotConfigured) {
             return redirect()
                 ->route('reports.generate', $query)

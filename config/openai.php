@@ -23,4 +23,9 @@ return [
 
     'max_rows' => (int) env('OPENAI_REPORT_MAX_ROWS', 80),
 
+    // Optional OpenRouter attribution headers (no secrets).
+    'http_referer' => env('OPENAI_HTTP_REFERER'),
+
+    'app_title' => env('OPENAI_APP_TITLE', 'Clinica Vida Salud'),
+
 ];
