@@ -53,10 +53,10 @@ const assert = require('node:assert/strict');
                     await page.locator('a[href="#asistente-reporte"]').click();
                     await page.locator('#pregunta').scrollIntoViewIfNeeded();
                     assert(await page.locator('#pregunta').isVisible());
-                    assert.equal(await page.locator('#pregunta').isDisabled(), state === 'initial');
+                    assert.equal(await page.locator('#pregunta').isDisabled(), false);
+                    await page.locator('#pregunta').fill('¿Cuántas citas ficticias aparecen?');
+                    assert.equal(await page.locator('#pregunta').inputValue(), '¿Cuántas citas ficticias aparecen?');
                     if (state === 'generated') {
-                        await page.locator('#pregunta').fill('¿Cuántas citas ficticias aparecen?');
-                        assert.equal(await page.locator('#pregunta').inputValue(), '¿Cuántas citas ficticias aparecen?');
                         assert(await page.evaluate(() => document.querySelector('#asistente-reporte').compareDocumentPosition(document.querySelector('.reports-result-card')) & Node.DOCUMENT_POSITION_FOLLOWING));
                     }
                 });

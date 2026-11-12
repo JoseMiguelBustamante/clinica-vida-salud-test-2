@@ -42,19 +42,22 @@ is not shown as an empty list or a total of zero. After generating a report the
 UI shows KPI cards and allows export as PDF, CSV or Excel
 (`GET /reportes/exportar`). Clinical notes and diagnoses are omitted.
 
-An optional report assistant (`POST /reportes/asistente`) summarizes the same
-generated sheet or answers a short natural-language question about it via an
-OpenAI-compatible HTTP API. Dokploy must supply `OPENAI_API_KEY`,
+An optional report assistant (`POST /reportes/asistente`) is the primary way to
+request a report in natural language and then summarize or ask about the same
+sheet via an OpenAI-compatible HTTP API. Dokploy must supply `OPENAI_API_KEY`,
 `OPENAI_BASE_URL` and `OPENAI_MODEL` (no hardcoded vendor defaults). A chat-only
-subscription is not enough. The model receives only the administrative sheet
-already produced by CU16; it must not invent rows or expose clinical notes.
+subscription is not enough. If required criteria are missing (type or calendar
+dates), the assistant asks for them and does not invent values. Clock-hour
+windows are out of scope. When criteria are complete it generates the CU16 sheet
+and answers from that sheet only; it must not invent rows or expose clinical
+notes. Manual filters remain available as a secondary path.
 
 On mobile, expand **Menú de navegación** to access the existing authorized links;
 desktop navigation stays expanded. Report filters stack in one column on mobile.
 Use **Ir al asistente IA** near the page title to reach **Instrucción o pregunta**.
-The assistant appears before the results table. Generate a report first to enable
-its question field; submitting still requires the existing report permission,
-CSRF token and provider configuration. Verify AI answers against the report.
+The assistant appears before manual filters and the results table. Submitting
+requires the existing report permission, CSRF token and provider configuration.
+Verify AI answers against the report.
 
 CU21 plans `recordatorio_cita` after a successful booking when the patient
 already had reminders enabled with a verified email. Confirmation is not the

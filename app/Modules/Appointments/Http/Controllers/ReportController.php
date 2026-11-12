@@ -65,6 +65,7 @@ final class ReportController
             'aiConfigured' => $this->assistant->isConfigured(),
             'aiAnswer' => session('ai_answer'),
             'aiQuestion' => session('ai_question'),
+            'aiClarifications' => session('ai_clarifications', []),
         ]);
     }
 
@@ -95,19 +96,51 @@ final class ReportController
     public function askReportAssistant(AskReportAssistantRequest $request): RedirectResponse
     {
         $validated = $request->validated();
-        $query = $this->queryFromInput($validated);
-        $payload = $this->buildReport($validated, forceGenerate: true);
-        if ($payload['status'] !== null || ! $payload['result']['generated']) {
-            return redirect()
-                ->route('reports.generate', $query)
-                ->withErrors(['tipo' => $payload['status'] ?? 'No fue posible preparar el reporte para el asistente.']);
-        }
-
-        $sheet = $this->exports->spreadsheet($payload['result']);
         $action = (string) $validated['accion'];
-        $question = $action === 'preguntar' ? (string) ($validated['pregunta'] ?? '') : null;
+        $instruction = trim((string) ($validated['pregunta'] ?? ''));
+        $query = $this->assistantQueryFromInput($validated);
+        $question = null;
+        $answer = null;
 
         try {
+            if (! $this->isReadyToAutoGenerate($validated)) {
+                $plan = $this->assistant->planReportInstruction(
+                    $instruction !== '' ? $instruction : 'Necesito ayuda para generar un reporte.',
+                    ReportDateDefaults::today(),
+                );
+
+                if ($plan['status'] === 'clarify') {
+                    return redirect()
+                        ->route('reports.generate', $query)
+                        ->with('ai_clarifications', $plan['questions'])
+                        ->with('ai_question', $instruction !== '' ? $instruction : null);
+                }
+
+                $validated = $this->mergePlanIntoInput($validated, $plan);
+                $query = $this->queryFromInput($validated);
+                if ($action === 'preguntar' && $instruction === '' && is_string($plan['pregunta'] ?? null)) {
+                    $instruction = trim((string) $plan['pregunta']);
+                }
+            } else {
+                $query = $this->queryFromInput($validated);
+            }
+
+            if (! $this->isReadyToAutoGenerate($validated)) {
+                return redirect()
+                    ->route('reports.generate', $this->assistantQueryFromInput($validated))
+                    ->with('ai_clarifications', ['Faltan datos para generar el reporte. Indique tipo y fechas (solo día).'])
+                    ->with('ai_question', $instruction !== '' ? $instruction : null);
+            }
+
+            $payload = $this->buildReport($validated, forceGenerate: true);
+            if ($payload['status'] !== null || ! $payload['result']['generated']) {
+                return redirect()
+                    ->route('reports.generate', $query)
+                    ->withErrors(['tipo' => $payload['status'] ?? 'No fue posible preparar el reporte para el asistente.']);
+            }
+
+            $sheet = $this->exports->spreadsheet($payload['result']);
+            $question = $action === 'preguntar' ? $instruction : null;
             $answer = $this->assistant->answerAboutReport($sheet, $question);
         } catch (ReportAiNotConfigured) {
             return redirect()
@@ -194,6 +227,53 @@ final class ReportController
         }
 
         return $query;
+    }
+
+    /**
+     * @param  array<string, mixed>  $input
+     * @return array<string, string>
+     */
+    private function assistantQueryFromInput(array $input): array
+    {
+        $query = [];
+        foreach (['tipo', 'fecha', 'fecha_inicio', 'fecha_fin', 'id_medico', 'id_especialidad', 'estado'] as $key) {
+            if (isset($input[$key]) && $input[$key] !== null && $input[$key] !== '') {
+                $query[$key] = (string) $input[$key];
+            }
+        }
+
+        return $query;
+    }
+
+    /**
+     * @param  array<string, mixed>  $input
+     * @param  array{
+     *     tipo: ?string,
+     *     fecha: ?string,
+     *     fecha_inicio: ?string,
+     *     fecha_fin: ?string,
+     *     id_medico: ?int,
+     *     id_especialidad: ?int,
+     *     estado: ?string,
+     *     pregunta: ?string
+     * }  $plan
+     * @return array<string, mixed>
+     */
+    private function mergePlanIntoInput(array $input, array $plan): array
+    {
+        foreach (['tipo', 'fecha', 'fecha_inicio', 'fecha_fin', 'estado'] as $key) {
+            if (($plan[$key] ?? null) !== null && ($plan[$key] ?? '') !== '') {
+                $input[$key] = $plan[$key];
+            }
+        }
+
+        foreach (['id_medico', 'id_especialidad'] as $key) {
+            if (($plan[$key] ?? null) !== null) {
+                $input[$key] = $plan[$key];
+            }
+        }
+
+        return $input;
     }
 
     /**

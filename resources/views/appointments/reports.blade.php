@@ -47,9 +47,47 @@
             ], fn ($value) => $value !== null && $value !== '');
         @endphp
 
+        <article class="list-card detail-card reports-ai-card" id="asistente-reporte" aria-labelledby="assistant-title">
+            <h2 id="assistant-title">Asistente del reporte</h2>
+            <p class="reports-filter-hint" id="assistant-help">Describa el reporte que necesita (tipo y fechas) o una pregunta. Si falta un dato obligatorio, el asistente le consulta. Solo usa fechas de calendario, no hora del reloj. Revise la respuesta contra los resultados.</p>
+            @if (! ($aiConfigured ?? false))
+                <p class="form-status" role="status">El asistente no está configurado. En Dokploy defina <code>OPENAI_API_KEY</code>, <code>OPENAI_BASE_URL</code> y <code>OPENAI_MODEL</code> del proveedor que use (API compatible; la suscripción del chat no alcanza).</p>
+            @endif
+            @if (! empty($aiClarifications))
+                <div class="form-status" role="status">
+                    <p>Para continuar, complete:</p>
+                    <ul>
+                        @foreach ($aiClarifications as $clarification)
+                            <li>{{ $clarification }}</li>
+                        @endforeach
+                    </ul>
+                </div>
+            @endif
+            <form class="reports-ai-form" method="post" action="{{ route('reports.assistant', absolute: false) }}">
+                @csrf
+                @foreach ($query as $key => $value)
+                    <input type="hidden" name="{{ $key }}" value="{{ $value }}">
+                @endforeach
+                <div class="field">
+                    <label for="pregunta">Instrucción o pregunta</label>
+                    <textarea id="pregunta" name="pregunta" rows="3" maxlength="500" aria-describedby="assistant-help" placeholder="Ejemplo: Totales de atendidas y canceladas del 2026-11-01 al 2026-11-12" @disabled(! ($aiConfigured ?? false))>{{ old('pregunta', $aiQuestion && $aiQuestion !== 'Resumen del reporte' ? $aiQuestion : '') }}</textarea>
+                </div>
+                <div class="reports-ai-actions">
+                    <button class="button button-inline button-quiet" type="submit" name="accion" value="resumir" @disabled(! ($aiConfigured ?? false))>Generar y resumir</button>
+                    <button class="button" type="submit" name="accion" value="preguntar" @disabled(! ($aiConfigured ?? false))>Generar y preguntar</button>
+                </div>
+            </form>
+            @if (! empty($aiAnswer))
+                <div class="reports-ai-answer" role="status">
+                    <p class="reports-kpi-label">{{ $aiQuestion ?: 'Respuesta' }}</p>
+                    <div class="reports-ai-answer-body">{!! nl2br(e($aiAnswer)) !!}</div>
+                </div>
+            @endif
+        </article>
+
         <article class="list-card detail-card reports-filter-card">
-            <h2>Generar reporte</h2>
-            <p class="reports-filter-hint">Al elegir el tipo se rellenan las fechas: día actual, o inicio de semana (lunes) hasta hoy. Ajuste el rango o use los atajos.</p>
+            <h2>Filtros manuales (opcional)</h2>
+            <p class="reports-filter-hint">Alternativa al asistente: al elegir el tipo se rellenan las fechas (día actual, o lunes hasta hoy). Ajuste el rango o use los atajos.</p>
             <form class="filter-bar reports-filter-bar" method="get" action="{{ route('reports.generate', absolute: false) }}" id="reports-filter-form">
                 <div class="field reports-field-type">
                     <label for="tipo">Tipo de reporte</label>
@@ -130,37 +168,6 @@
                     <button class="button" type="submit" name="generar" value="1">Generar reporte</button>
                 </div>
             </form>
-        </article>
-
-        <article class="list-card detail-card reports-ai-card" id="asistente-reporte" aria-labelledby="assistant-title">
-            <h2 id="assistant-title">Asistente del reporte</h2>
-            <p class="reports-filter-hint" id="assistant-help">Escriba una instrucción o pregunta sobre el reporte generado, o pulse Resumir. Revise la respuesta de la IA contra los resultados.</p>
-            @if (! $generated)
-                <p class="form-status" role="status">Primero genere un reporte para habilitar las preguntas.</p>
-            @endif
-            @if (! ($aiConfigured ?? false))
-                <p class="form-status" role="status">El asistente no está configurado. En Dokploy defina <code>OPENAI_API_KEY</code>, <code>OPENAI_BASE_URL</code> y <code>OPENAI_MODEL</code> del proveedor que use (API compatible; la suscripción del chat no alcanza).</p>
-            @endif
-            <form class="reports-ai-form" method="post" action="{{ route('reports.assistant', absolute: false) }}">
-                @csrf
-                @foreach ($query as $key => $value)
-                    <input type="hidden" name="{{ $key }}" value="{{ $value }}">
-                @endforeach
-                <div class="field">
-                    <label for="pregunta">Instrucción o pregunta (opcional para resumir)</label>
-                    <textarea id="pregunta" name="pregunta" rows="3" maxlength="500" aria-describedby="assistant-help" placeholder="Ejemplo: ¿Cuántas citas canceladas hubo y de qué especialidades?" @disabled(! $generated)>{{ old('pregunta', $aiQuestion && $aiQuestion !== 'Resumen del reporte' ? $aiQuestion : '') }}</textarea>
-                </div>
-                <div class="reports-ai-actions">
-                    <button class="button button-inline button-quiet" type="submit" name="accion" value="resumir" @disabled(! $generated || ! ($aiConfigured ?? false))>Resumir</button>
-                    <button class="button" type="submit" name="accion" value="preguntar" @disabled(! $generated || ! ($aiConfigured ?? false))>Preguntar</button>
-                </div>
-            </form>
-            @if (! empty($aiAnswer))
-                <div class="reports-ai-answer" role="status">
-                    <p class="reports-kpi-label">{{ $aiQuestion ?: 'Respuesta' }}</p>
-                    <div class="reports-ai-answer-body">{!! nl2br(e($aiAnswer)) !!}</div>
-                </div>
-            @endif
         </article>
 
         @if ($generated)

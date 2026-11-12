@@ -59,6 +59,7 @@ class ReportScreenTest extends TestCase
 
     public function test_mobile_navigation_and_assistant_are_discoverable_before_generation(): void
     {
+        config(['openai.api_key' => 'test-key', 'openai.model' => 'test-model', 'openai.base_url' => 'https://provider.invalid/v1']);
         $this->authorizeReports(1, true);
         $this->mockCatalogLookups();
         $this->withSession([Auth::guard('web')->getName() => 17]);
@@ -69,12 +70,13 @@ class ReportScreenTest extends TestCase
             ->assertSee('Menú de navegación')
             ->assertSee('href="#asistente-reporte"', false)
             ->assertSee('id="pregunta"', false)
-            ->assertSee('Primero genere un reporte para habilitar las preguntas.');
+            ->assertSee('Filtros manuales (opcional)')
+            ->assertDontSee('Primero genere un reporte para habilitar las preguntas.');
         $dom = new \DOMDocument;
         @$dom->loadHTML($response->getContent());
         $xpath = new \DOMXPath($dom);
-        $this->assertSame(1, $xpath->query('//textarea[@id="pregunta" and @disabled]')->length);
-        $this->assertSame(2, $xpath->query('//form[contains(@class,"reports-ai-form")]//button[@disabled]')->length);
+        $this->assertSame(1, $xpath->query('//textarea[@id="pregunta" and not(@disabled)]')->length);
+        $this->assertSame(2, $xpath->query('//form[contains(@class,"reports-ai-form")]//button[not(@disabled)]')->length);
         $this->assertSame([], $this->app['db']->getConnections());
     }
 
@@ -486,6 +488,112 @@ class ReportScreenTest extends TestCase
             'fecha' => '2026-11-01',
             'accion' => 'resumir',
         ])->assertForbidden();
+        $this->assertSame([], $this->app['db']->getConnections());
+    }
+
+    public function test_report_assistant_asks_when_instruction_omits_required_dates(): void
+    {
+        config([
+            'openai.api_key' => 'test-openai-key',
+            'openai.model' => 'gpt-4o-mini',
+            'openai.base_url' => 'https://api.openai.com/v1',
+        ]);
+        Http::fake([
+            'api.openai.com/*' => Http::response([
+                'choices' => [[
+                    'message' => [
+                        'content' => json_encode([
+                            'status' => 'ready',
+                            'tipo' => 'totales_periodo',
+                            'fecha_inicio' => null,
+                            'fecha_fin' => null,
+                            'pregunta' => null,
+                        ], JSON_UNESCAPED_UNICODE),
+                    ],
+                ]],
+            ], 200),
+        ]);
+
+        $this->authorizeReports(2);
+        $this->mockCatalogLookups(1);
+        $appointments = $this->app->make(AppointmentRepository::class);
+        $appointments->shouldReceive('getAppointmentsInRange')->never();
+
+        $this->withSession([Auth::guard('web')->getName() => 17]);
+        $response = $this->from('/reportes')->post('/reportes/asistente', [
+            'accion' => 'preguntar',
+            'pregunta' => 'Quiero totales de atendidas y canceladas',
+        ]);
+        $response->assertRedirect();
+        $this->followRedirects($response)
+            ->assertOk()
+            ->assertSee('Para continuar, complete:')
+            ->assertSee('fecha', false);
+        $this->assertSame([], $this->app['db']->getConnections());
+    }
+
+    public function test_report_assistant_generates_from_instruction_then_answers(): void
+    {
+        config([
+            'openai.api_key' => 'test-openai-key',
+            'openai.model' => 'gpt-4o-mini',
+            'openai.base_url' => 'https://api.openai.com/v1',
+        ]);
+        Http::fakeSequence()
+            ->push([
+                'choices' => [[
+                    'message' => [
+                        'content' => json_encode([
+                            'status' => 'ready',
+                            'tipo' => 'citas_fecha',
+                            'fecha' => '2026-11-01',
+                            'fecha_inicio' => null,
+                            'fecha_fin' => null,
+                            'id_medico' => null,
+                            'id_especialidad' => null,
+                            'estado' => null,
+                            'pregunta' => '¿Cuántas canceladas hubo?',
+                        ], JSON_UNESCAPED_UNICODE),
+                    ],
+                ]],
+            ], 200)
+            ->push([
+                'choices' => [[
+                    'message' => ['content' => 'Hay 0 canceladas en el reporte.'],
+                ]],
+            ], 200);
+
+        $this->authorizeReports(2);
+        $this->mockCatalogLookups(2);
+        $appointments = $this->app->make(AppointmentRepository::class);
+        $appointments->shouldReceive('getAppointmentsInRange')->twice()->andReturn(collect([
+            (object) [
+                'id_cita' => 21,
+                'codigo' => 'CIT-1',
+                'inicio' => '2026-11-01T08:00:00+00:00',
+                'fin' => '2026-11-01T08:30:00+00:00',
+                'estado' => 'Programada',
+                'id_medico' => 4,
+                'motivo_consulta' => 'Nota clínica secreta',
+                'paciente_nombres' => 'Ana',
+                'paciente_apellidos' => 'Rojas',
+                'medico_nombres' => 'Luis',
+                'medico_apellidos' => 'Soto',
+                'especialidad_nombre' => 'Pediatría',
+            ],
+        ]));
+
+        $this->withSession([Auth::guard('web')->getName() => 17]);
+        $response = $this->from('/reportes')->post('/reportes/asistente', [
+            'accion' => 'preguntar',
+            'pregunta' => 'Armá citas del 2026-11-01 y decime cuántas canceladas hubo',
+        ]);
+        $response->assertRedirect();
+        $this->followRedirects($response)
+            ->assertOk()
+            ->assertSee('Hay 0 canceladas en el reporte.')
+            ->assertSee('CIT-1')
+            ->assertDontSee('Nota clínica secreta');
         $this->assertSame([], $this->app['db']->getConnections());
     }
 

@@ -54,6 +54,7 @@ class ReportAiServiceTest extends TestCase
     {
         config([
             'openai.api_key' => 'test-key',
+            'openai.model' => 'gpt-4o-mini',
             'openai.base_url' => 'https://api.openai.com/v1',
         ]);
         Http::fake([
@@ -62,6 +63,80 @@ class ReportAiServiceTest extends TestCase
 
         $this->expectException(ReportAiUnavailable::class);
         (new ReportAiService)->answerAboutReport($this->sheet(), null);
+    }
+
+    public function test_plan_asks_when_required_dates_are_missing(): void
+    {
+        config([
+            'openai.api_key' => 'test-key',
+            'openai.model' => 'gpt-4o-mini',
+            'openai.base_url' => 'https://api.openai.com/v1',
+        ]);
+        Http::fake([
+            'api.openai.com/v1/chat/completions' => Http::response([
+                'choices' => [[
+                    'message' => [
+                        'content' => json_encode([
+                            'status' => 'ready',
+                            'tipo' => 'totales_periodo',
+                            'fecha_inicio' => null,
+                            'fecha_fin' => null,
+                            'pregunta' => null,
+                        ], JSON_UNESCAPED_UNICODE),
+                    ],
+                ]],
+            ], 200),
+        ]);
+
+        $plan = (new ReportAiService)->planReportInstruction(
+            'Quiero el reporte de atendidas y canceladas',
+            '2026-11-12',
+        );
+
+        $this->assertSame('clarify', $plan['status']);
+        $this->assertNotEmpty($plan['questions']);
+        $this->assertTrue(collect($plan['questions'])->contains(
+            fn (string $question): bool => str_contains(mb_strtolower($question), 'fecha')
+        ));
+    }
+
+    public function test_plan_returns_ready_criteria_from_instruction(): void
+    {
+        config([
+            'openai.api_key' => 'test-key',
+            'openai.model' => 'gpt-4o-mini',
+            'openai.base_url' => 'https://api.openai.com/v1',
+        ]);
+        Http::fake([
+            'api.openai.com/v1/chat/completions' => Http::response([
+                'choices' => [[
+                    'message' => [
+                        'content' => json_encode([
+                            'status' => 'ready',
+                            'tipo' => 'citas_fecha',
+                            'fecha' => '2026-11-10',
+                            'fecha_inicio' => null,
+                            'fecha_fin' => null,
+                            'id_medico' => null,
+                            'id_especialidad' => null,
+                            'estado' => null,
+                            'pregunta' => '¿Cuántas canceladas hubo?',
+                        ], JSON_UNESCAPED_UNICODE),
+                    ],
+                ]],
+            ], 200),
+        ]);
+
+        $plan = (new ReportAiService)->planReportInstruction(
+            'Armá citas del 2026-11-10 y decime cuántas canceladas hubo',
+            '2026-11-12',
+        );
+
+        $this->assertSame('ready', $plan['status']);
+        $this->assertSame('citas_fecha', $plan['tipo']);
+        $this->assertSame('2026-11-10', $plan['fecha']);
+        $this->assertSame('¿Cuántas canceladas hubo?', $plan['pregunta']);
+        $this->assertSame([], $plan['questions']);
     }
 
     /**

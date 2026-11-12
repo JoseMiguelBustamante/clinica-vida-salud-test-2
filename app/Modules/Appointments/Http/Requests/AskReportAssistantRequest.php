@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Modules\Appointments\Http\Requests;
 
-use App\Modules\Appointments\ReportDateDefaults;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Validator;
 
@@ -15,20 +14,21 @@ final class AskReportAssistantRequest extends FormRequest
         return true;
     }
 
-    protected function prepareForValidation(): void
-    {
-        $this->merge(ReportDateDefaults::apply($this->all()));
-    }
-
     public function rules(): array
     {
         $types = 'citas_fecha,citas_medico,citas_especialidad,citas_estado,pacientes,totales_periodo,agenda_diaria';
-        $type = (string) $this->input('tipo', '');
         $action = (string) $this->input('accion', 'resumir');
+        $type = trim((string) $this->input('tipo', ''));
+        $hasType = $type !== '';
+
         $rules = [
-            'tipo' => ['required', 'in:'.$types],
+            'tipo' => ['nullable', 'in:'.$types],
             'accion' => ['required', 'in:resumir,preguntar'],
-            'pregunta' => [$action === 'preguntar' ? 'required' : 'nullable', 'string', 'max:500'],
+            'pregunta' => [
+                $hasType && $action === 'resumir' ? 'nullable' : 'required',
+                'string',
+                'max:500',
+            ],
             'fecha' => ['nullable', 'date_format:Y-m-d'],
             'fecha_inicio' => ['nullable', 'date_format:Y-m-d'],
             'fecha_fin' => ['nullable', 'date_format:Y-m-d'],
@@ -37,28 +37,32 @@ final class AskReportAssistantRequest extends FormRequest
             'estado' => ['nullable', 'in:Programada,Confirmada,Atendida,Cancelada,Inasistencia'],
         ];
 
+        if (! $hasType) {
+            return $rules;
+        }
+
         return match ($type) {
             'citas_fecha', 'agenda_diaria' => array_merge($rules, [
-                'fecha' => ['required', 'date_format:Y-m-d'],
+                'fecha' => ['nullable', 'date_format:Y-m-d'],
             ]),
             'citas_medico' => array_merge($rules, [
-                'id_medico' => ['required', 'integer'],
-                'fecha_inicio' => ['required', 'date_format:Y-m-d'],
-                'fecha_fin' => ['required', 'date_format:Y-m-d'],
+                'id_medico' => ['nullable', 'integer'],
+                'fecha_inicio' => ['nullable', 'date_format:Y-m-d'],
+                'fecha_fin' => ['nullable', 'date_format:Y-m-d'],
             ]),
             'citas_especialidad' => array_merge($rules, [
-                'id_especialidad' => ['required', 'integer'],
-                'fecha_inicio' => ['required', 'date_format:Y-m-d'],
-                'fecha_fin' => ['required', 'date_format:Y-m-d'],
+                'id_especialidad' => ['nullable', 'integer'],
+                'fecha_inicio' => ['nullable', 'date_format:Y-m-d'],
+                'fecha_fin' => ['nullable', 'date_format:Y-m-d'],
             ]),
             'citas_estado' => array_merge($rules, [
-                'estado' => ['required', 'in:Programada,Confirmada,Atendida,Cancelada,Inasistencia'],
-                'fecha_inicio' => ['required', 'date_format:Y-m-d'],
-                'fecha_fin' => ['required', 'date_format:Y-m-d'],
+                'estado' => ['nullable', 'in:Programada,Confirmada,Atendida,Cancelada,Inasistencia'],
+                'fecha_inicio' => ['nullable', 'date_format:Y-m-d'],
+                'fecha_fin' => ['nullable', 'date_format:Y-m-d'],
             ]),
             'totales_periodo' => array_merge($rules, [
-                'fecha_inicio' => ['required', 'date_format:Y-m-d'],
-                'fecha_fin' => ['required', 'date_format:Y-m-d'],
+                'fecha_inicio' => ['nullable', 'date_format:Y-m-d'],
+                'fecha_fin' => ['nullable', 'date_format:Y-m-d'],
             ]),
             default => $rules,
         };
@@ -78,18 +82,14 @@ final class AskReportAssistantRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'tipo.required' => 'Seleccione el tipo de reporte.',
             'tipo.in' => 'El tipo de reporte no es válido.',
             'accion.required' => 'Indique la acción del asistente.',
             'accion.in' => 'La acción del asistente no es válida.',
-            'pregunta.required' => 'Escriba una pregunta sobre el reporte.',
+            'pregunta.required' => 'Escriba una instrucción o pregunta para el asistente.',
             'pregunta.max' => 'La pregunta es demasiado larga.',
-            'fecha.required' => 'Indique la fecha del reporte.',
-            'fecha_inicio.required' => 'Indique la fecha inicial.',
-            'fecha_fin.required' => 'Indique la fecha final.',
-            'id_medico.required' => 'Seleccione el médico del reporte.',
-            'id_especialidad.required' => 'Seleccione la especialidad del reporte.',
-            'estado.required' => 'Seleccione el estado del reporte.',
+            'fecha.date_format' => 'Indique una fecha válida.',
+            'fecha_inicio.date_format' => 'Indique una fecha inicial válida.',
+            'fecha_fin.date_format' => 'Indique una fecha final válida.',
         ];
     }
 }

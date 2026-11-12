@@ -13,7 +13,7 @@ S6. "Publicalo en test2" — publish the bounded correction after the disclosed 
 ## Tasks
 T1 | S1-S2,S4-S5 | inline | done | Test-only bootstrap repair: IdentitySessionScreenTest 12/88 PASS. UI RED: 2 tests/16 assertions/2 failures; Chromium baseline 18 failures across 320/390/430/768/1280px, mobile menu 402-622px tall. Base cd791344f08dfff560ec42e1afa0b8504fe0c260.
 T2 | S1-S2 | inline | done | Script-free CSS/native checkbox mobile menu, single-column filters, visible assistant shortcut and field before results implemented. Focused 30 tests/289 assertions PASS; Chromium 42 checks PASS. Commit pending. Risk: item 3 (shared navigation also serves existing screens).
-T3 | S1-S3,S5-S6 | inline (independent verifier unavailable) | done | User continued with "Oki continúa" after disclosed verifier gap. Spot-check PASS: ReportScreenTest+IdentitySessionScreenTest 30/289; Chromium 42 checks PASS. Commit+push only the nine intended files on test-2/feat/clinic-bootstrap; exclude .codegraph/. Full suite still has disclosed 4 failures / 12 errors / 1 risky (unrelated).
+T3 | S1-S3,S5-S6 | inline (independent verifier unavailable) | done | Commit 36b782cf180e1bd3a4a8052644a2e9c522dbbb77 pushed to origin/feat/clinic-bootstrap on test-2. Spot-check PASS: 30/289 PHPUnit + Chromium 42. Full suite debt disclosed (4 failures / 12 errors / 1 risky). Public / and /up returned HTTP 200 after push; authenticated UI/live AI not rechecked.
 
 ## Log
 L1. User request verbatim: "Mira no es responsibo arregla eso, no veo donde poner la instrucción \nRecuerda.que los cambios se suben a test2 el dokploy está escuchando la rama y el deploy es automático con el push". Two mobile screenshots show the complete package menu before report content and cramped date filters.
