@@ -57,6 +57,60 @@ class ReportScreenTest extends TestCase
         $this->assertSame([], $this->app['db']->getConnections());
     }
 
+    public function test_mobile_navigation_and_assistant_are_discoverable_before_generation(): void
+    {
+        $this->authorizeReports(1, true);
+        $this->mockCatalogLookups();
+        $this->withSession([Auth::guard('web')->getName() => 17]);
+        $response = $this->get('/reportes?tipo=citas_medico');
+        $response->assertOk()->assertSee('name="fecha_inicio"', false)->assertSee('name="fecha_fin"', false);
+        $this->saveBrowserFixture('initial', $response->getContent());
+        $response->assertSee('id="app-navigation"', false)
+            ->assertSee('Menú de navegación')
+            ->assertSee('href="#asistente-reporte"', false)
+            ->assertSee('id="pregunta"', false)
+            ->assertSee('Primero genere un reporte para habilitar las preguntas.');
+        $dom = new \DOMDocument;
+        @$dom->loadHTML($response->getContent());
+        $xpath = new \DOMXPath($dom);
+        $this->assertSame(1, $xpath->query('//textarea[@id="pregunta" and @disabled]')->length);
+        $this->assertSame(2, $xpath->query('//form[contains(@class,"reports-ai-form")]//button[@disabled]')->length);
+        $this->assertSame([], $this->app['db']->getConnections());
+    }
+
+    public function test_generated_report_keeps_the_question_before_long_results(): void
+    {
+        config(['openai.api_key' => 'test-key', 'openai.model' => 'test-model', 'openai.base_url' => 'https://provider.invalid/v1']);
+        $this->authorizeReports(1, true);
+        $this->mockCatalogLookups();
+        $appointments = $this->app->make(AppointmentRepository::class);
+        $appointments->shouldReceive('getAppointmentsInRange')->once()->andReturn(collect(range(1, 30))->map(fn (int $id): object => (object) [
+            'id_cita' => $id, 'codigo' => 'DEMO-'.$id, 'inicio' => '2026-11-01T08:00:00+00:00',
+            'fin' => '2026-11-01T08:30:00+00:00', 'estado' => 'Programada', 'id_medico' => 4,
+            'paciente_nombres' => 'Paciente ficticio', 'paciente_apellidos' => 'Demostración',
+            'medico_nombres' => 'Médico ficticio', 'medico_apellidos' => 'Pruebas', 'especialidad_nombre' => 'Prueba',
+        ]));
+        $this->withSession([Auth::guard('web')->getName() => 17]);
+        $response = $this->get('/reportes?tipo=citas_fecha&fecha=2026-11-01&generar=1');
+        $response->assertOk()->assertSee('DEMO-30');
+        $this->saveBrowserFixture('generated', $response->getContent());
+        $response->assertSeeInOrder(['Asistente del reporte', 'Resultado del reporte']);
+        $dom = new \DOMDocument;
+        @$dom->loadHTML($response->getContent());
+        $xpath = new \DOMXPath($dom);
+        $this->assertSame(1, $xpath->query('//textarea[@id="pregunta" and not(@disabled)]')->length);
+        $this->assertSame(2, $xpath->query('//form[contains(@class,"reports-ai-form")]//button[not(@disabled)]')->length);
+        $this->assertSame([], $this->app['db']->getConnections());
+    }
+
+    private function saveBrowserFixture(string $name, string $html): void
+    {
+        $directory = getenv('CLINIC_BROWSER_FIXTURE_DIR');
+        if (is_string($directory) && $directory !== '') {
+            file_put_contents($directory.'/'.$name.'.html', $html);
+        }
+    }
+
     public function test_a_date_report_lists_without_clinical_notes(): void
     {
         $this->authorizeReports();
@@ -435,12 +489,14 @@ class ReportScreenTest extends TestCase
         $this->assertSame([], $this->app['db']->getConnections());
     }
 
-    private function authorizeReports(int $times = 1): void
+    private function authorizeReports(int $times = 1, bool $fullNavigation = false): void
     {
         $user = (new User)->forceFill(['id_usuario' => 17, 'activo' => true, 'id_rol' => 1]);
         $identities = Mockery::mock(IdentityRepository::class);
         $identities->shouldReceive('active')->times($times)->with(17)->andReturn($user);
-        $identities->shouldReceive('permissionCodes')->times($times)->with($user)->andReturn([PermissionCatalog::GENERATE_REPORTS]);
+        $identities->shouldReceive('permissionCodes')->times($times)->with($user)->andReturn($fullNavigation
+            ? PermissionCatalog::codesForRole(PermissionCatalog::ADMINISTRATOR_ROLE)
+            : [PermissionCatalog::GENERATE_REPORTS]);
         $this->app->instance(IdentityRepository::class, $identities);
     }
 

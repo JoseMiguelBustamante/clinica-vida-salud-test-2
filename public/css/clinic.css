@@ -872,6 +872,30 @@ body.is-app :focus-visible {
     margin: 0 0.35rem 0.75rem;
 }
 
+.app-menu {
+    flex: 1;
+    min-width: 0;
+}
+
+.app-menu-switch {
+    display: none;
+}
+
+.app-menu-toggle {
+    display: none;
+    cursor: pointer;
+    padding: 0.65rem 0.75rem;
+    border: 1px solid var(--clinic-line);
+    border-radius: 0.7rem;
+    font-weight: 700;
+}
+
+.app-menu-content {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+}
+
 .app-nav {
     display: flex;
     flex-direction: column;
@@ -1744,9 +1768,9 @@ a.code-link:hover {
     background: transparent;
 }
 
-.reports-filter-bar {
+.reports-filter-card .reports-filter-bar {
     display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: minmax(0, 1fr);
     gap: 0.9rem 1rem;
     align-items: end;
 }
@@ -1754,6 +1778,19 @@ a.code-link:hover {
 .reports-field-type {
     grid-column: 1 / -1;
 }
+
+.reports-filter-bar .field,
+.reports-filter-bar input,
+.reports-filter-bar select {
+    min-width: 0;
+    width: 100%;
+}
+
+.reports-filter-card .reports-date-presets .button {
+    flex: 1 1 auto;
+    width: auto;
+}
+
 
 .reports-date-presets {
     grid-column: 1 / -1;
@@ -1781,7 +1818,7 @@ a.code-link:hover {
 }
 
 @media (min-width: 52rem) {
-    .reports-filter-bar {
+    .reports-filter-card .filter-bar.reports-filter-bar {
         grid-template-columns: repeat(3, minmax(0, 1fr));
     }
 }
@@ -1904,7 +1941,17 @@ a.code-link:hover {
 
 .reports-ai-card {
     margin-top: 1.25rem;
+    scroll-margin-top: 1rem;
 }
+
+.reports-ai-card h2 {
+    margin-top: 0;
+}
+
+.reports-ai-form textarea:disabled {
+    background: var(--clinic-panel);
+}
+
 
 .reports-ai-form {
     display: grid;
@@ -2701,11 +2748,48 @@ body.is-app .booking-cancel:hover {
         font-size: 0.95rem;
     }
 
+    .app-sidebar {
+        padding: 0.75rem 0.9rem;
+    }
+
+    .app-brand {
+        margin-bottom: 0.35rem;
+        font-size: 1.05rem;
+    }
+
+    .app-menu-switch {
+        display: block;
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        clip-path: inset(50%);
+    }
+
+    .app-menu-toggle {
+        display: block;
+    }
+
+    .app-menu-switch:focus-visible + .app-menu-toggle {
+        outline: 3px solid var(--clinic-green);
+        outline-offset: 3px;
+    }
+
+    .app-menu-switch:not(:checked) ~ .app-menu-content {
+        display: none;
+    }
+
+    .app-menu-content {
+        padding-top: 0.5rem;
+    }
+
     .app-nav {
         display: flex;
-        flex-direction: row;
-        flex-wrap: wrap;
+        flex-direction: column;
         gap: 0.35rem;
+    }
+
+    .reports-ai-actions .button {
+        flex: 1 1 100%;
     }
 
     .app-nav-label {

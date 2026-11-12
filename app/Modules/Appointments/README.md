@@ -49,6 +49,13 @@ OpenAI-compatible HTTP API. Dokploy must supply `OPENAI_API_KEY`,
 subscription is not enough. The model receives only the administrative sheet
 already produced by CU16; it must not invent rows or expose clinical notes.
 
+On mobile, expand **Menú de navegación** to access the existing authorized links;
+desktop navigation stays expanded. Report filters stack in one column on mobile.
+Use **Ir al asistente IA** near the page title to reach **Instrucción o pregunta**.
+The assistant appears before the results table. Generate a report first to enable
+its question field; submitting still requires the existing report permission,
+CSRF token and provider configuration. Verify AI answers against the report.
+
 CU21 plans `recordatorio_cita` after a successful booking when the patient
 already had reminders enabled with a verified email. Confirmation is not the
 trigger. The default lead time is 24 hours; if that instant has already passed

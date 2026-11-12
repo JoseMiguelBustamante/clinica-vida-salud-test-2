@@ -40,6 +40,10 @@
         <span>Clínica Vida Salud</span>
     </a>
 
+    <div class="app-menu" id="app-navigation">
+        <input class="app-menu-switch" type="checkbox" id="app-menu-switch" autocomplete="off">
+        <label class="app-menu-toggle" for="app-menu-switch">Menú de navegación</label>
+        <div class="app-menu-content">
     <nav class="app-nav">
         <a class="app-nav-link app-nav-panel @if (request()->routeIs('panel')) is-current @endif" href="{{ route('panel') }}">
             <span class="app-nav-panel-icon" aria-hidden="true">
@@ -153,5 +157,7 @@
             @csrf
             <button class="app-nav-link app-logout" type="submit">Cerrar sesión</button>
         </form>
+    </div>
+        </div>
     </div>
 </aside>

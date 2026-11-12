@@ -3,8 +3,11 @@
 namespace Tests\Feature;
 
 use App\Models\User;
+use App\Modules\Appointments\AppointmentRepository;
 use App\Modules\Identity\IdentityRepository;
 use App\Modules\Identity\PanelDashboardService;
+use App\Modules\Identity\PermissionCatalog;
+use App\Modules\Patients\PatientRepository;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
@@ -114,28 +117,19 @@ class IdentitySessionScreenTest extends TestCase
     {
         $user = (new User)->forceFill(['id_usuario' => 17, 'activo' => true]);
         $representation = ['id' => 17, 'username' => 'admin', 'email' => null,
-            'role' => ['id' => 1, 'name' => 'Administrador'], 'permissions' => ['usuarios.administrar']];
+            'role' => ['id' => 1, 'name' => 'Administrador'], 'permissions' => [PermissionCatalog::BOOK_APPOINTMENTS, PermissionCatalog::MANAGE_PATIENTS]];
         $repository = Mockery::mock(IdentityRepository::class);
         $repository->shouldReceive('active')->once()->with(17)->andReturn($user);
         $repository->shouldReceive('representation')->once()->with($user)->andReturn($representation);
         $this->app->instance(IdentityRepository::class, $repository);
 
-        $dashboard = Mockery::mock(PanelDashboardService::class);
-        $dashboard->shouldReceive('indicatorsFor')->once()->with($representation)->andReturn([
-            [
-                'label' => 'Citas de hoy',
-                'value' => 5,
-                'hint' => 'Citas programadas o atendidas hoy',
-                'href' => 'https://localhost/agenda',
-            ],
-            [
-                'label' => 'Pacientes activos',
-                'value' => 12,
-                'hint' => 'Registros habilitados para atención',
-                'href' => 'https://localhost/pacientes',
-            ],
-        ]);
-        $this->app->instance(PanelDashboardService::class, $dashboard);
+        $appointments = Mockery::mock(AppointmentRepository::class);
+        $appointments->shouldReceive('countAppointmentsOnDate')->once()->andReturn(5);
+        $this->app->instance(AppointmentRepository::class, $appointments);
+        $patients = Mockery::mock(PatientRepository::class);
+        $patients->shouldReceive('countActivePatients')->once()->andReturn(12);
+        $this->app->instance(PatientRepository::class, $patients);
+        $this->app->forgetInstance(PanelDashboardService::class);
 
         $this->withSession([Auth::guard('web')->getName() => 17]);
         $this->get('/panel')->assertOk()

@@ -2,8 +2,14 @@
 
 namespace Tests;
 
+use App\Modules\Appointments\AppointmentRepository;
 use App\Modules\Identity\ActivityLogRepository;
+use App\Modules\Identity\IdentityRepository;
 use App\Modules\Identity\PanelDashboardService;
+use App\Modules\MedicalStaff\PhysicianRepository;
+use App\Modules\MedicalStaff\SpecialtyRepository;
+use App\Modules\Patients\PatientRepository;
+use App\Modules\Schedules\ScheduleRepository;
 use Illuminate\Contracts\Console\Kernel;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Bootstrap\LoadEnvironmentVariables;
@@ -45,9 +51,13 @@ abstract class TestCase extends BaseTestCase
 
         $this->app->instance(ActivityLogRepository::class, Mockery::mock(ActivityLogRepository::class)->shouldIgnoreMissing());
 
-        $dashboard = Mockery::mock(PanelDashboardService::class);
-        $dashboard->shouldReceive('indicatorsFor')->andReturn([])->byDefault();
-        $this->app->instance(PanelDashboardService::class, $dashboard);
+        $dashboardRepositories = array_map(
+            static fn (string $repository): object => Mockery::mock($repository)->shouldIgnoreMissing(),
+            [PatientRepository::class, PhysicianRepository::class, SpecialtyRepository::class,
+                ScheduleRepository::class, AppointmentRepository::class, IdentityRepository::class, ActivityLogRepository::class],
+        );
+        $this->app->instance(PanelDashboardService::class, new PanelDashboardService(...$dashboardRepositories));
+
     }
 
     protected function tearDown(): void
