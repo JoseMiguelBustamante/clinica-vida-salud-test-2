@@ -51,8 +51,10 @@ a:hover {
 }
 
 .container {
-    width: min(100% - 2rem, 80rem);
+    width: min(100%, 80rem);
     margin-inline: auto;
+    padding-inline: 1.25rem;
+    box-sizing: border-box;
 }
 
 .site-header {
@@ -470,7 +472,8 @@ h1 {
 
 @media (max-width: 52rem) {
     .container {
-        width: min(100% - 1.5rem, 80rem);
+        width: min(100%, 80rem);
+        padding-inline: 1.15rem;
     }
 
     .header-content {
@@ -1712,6 +1715,32 @@ a.code-link:hover {
 
 .app-page {
     min-width: 0;
+}
+
+.payment-receipt-shell {
+    padding-block: 1.5rem 2.5rem;
+}
+
+.payment-receipt {
+    display: grid;
+    gap: 1rem;
+    max-width: 36rem;
+}
+
+.payment-receipt .form-status,
+.payment-receipt .form-errors,
+.payment-receipt .list-card {
+    margin-inline: 0;
+}
+
+@media (max-width: 52rem) {
+    .payment-receipt-shell {
+        padding-block: 1.15rem 2rem;
+    }
+
+    .payment-receipt h1 {
+        font-size: 1.65rem;
+    }
 }
 
 .app-content .page-form {

@@ -1,9 +1,10 @@
 @extends('layouts.clinic')
 
 @section('title', 'Pago recibido — Clínica Vida Salud')
+@section('main_class', 'container payment-receipt-shell')
 
 @section('content')
-    <section class="app-page" aria-labelledby="page-title">
+    <section class="payment-receipt" aria-labelledby="page-title">
         <p class="app-breadcrumb">Clínica Vida Salud / Cobro</p>
         <h1 id="page-title">Pago recibido</h1>
 
@@ -50,7 +51,7 @@
             </dl>
         </article>
 
-        <p class="lead" style="margin-top:1rem">
+        <p class="lead">
             Gracias. Ya puede cerrar esta ventana y volver a recepción.
         </p>
     </section>

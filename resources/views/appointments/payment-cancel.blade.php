@@ -1,9 +1,10 @@
 @extends('layouts.clinic')
 
 @section('title', 'Pago cancelado — Clínica Vida Salud')
+@section('main_class', 'container payment-receipt-shell')
 
 @section('content')
-    <section class="app-page" aria-labelledby="page-title">
+    <section class="payment-receipt" aria-labelledby="page-title">
         <p class="app-breadcrumb">Clínica Vida Salud / Cobro</p>
         <h1 id="page-title">Pago no completado</h1>
         <div class="form-errors" role="alert">
