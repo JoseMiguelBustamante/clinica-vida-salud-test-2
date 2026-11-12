@@ -30,17 +30,27 @@
             $selectedMedico = old('id_medico', $id_medico);
             $selectedEspecialidad = old('id_especialidad', $id_especialidad);
             $selectedEstado = old('estado', $estado);
+            $needsRange = in_array($selectedType, ['citas_medico', 'citas_especialidad', 'citas_estado', 'totales_periodo'], true);
+            $needsSingleDate = in_array($selectedType, ['citas_fecha', 'agenda_diaria'], true);
             $recordCount = $generated
                 ? (int) ($type === 'totales_periodo'
                     ? (($totals['Atendida'] ?? 0) + ($totals['Cancelada'] ?? 0) + ($totals['Inasistencia'] ?? 0))
                     : ($rows?->count() ?? 0))
                 : 0;
+            $baseQuery = array_filter([
+                'tipo' => $selectedType,
+                'id_medico' => $selectedMedico,
+                'id_especialidad' => $selectedEspecialidad,
+                'estado' => $selectedEstado,
+                'generar' => '1',
+            ], fn ($value) => $value !== null && $value !== '');
         @endphp
 
         <article class="list-card detail-card reports-filter-card">
             <h2>Generar reporte</h2>
+            <p class="reports-filter-hint">Al elegir el tipo se rellenan las fechas: día actual, o inicio de semana (lunes) hasta hoy. Ajuste el rango o use los atajos.</p>
             <form class="filter-bar reports-filter-bar" method="get" action="{{ route('reports.generate', absolute: false) }}" id="reports-filter-form">
-                <div class="field">
+                <div class="field reports-field-type">
                     <label for="tipo">Tipo de reporte</label>
                     <select id="tipo" name="tipo" onchange="this.form.submit()">
                         <option value="">Seleccione</option>
@@ -49,26 +59,26 @@
                         @endforeach
                     </select>
                 </div>
-                @if (in_array($selectedType, ['citas_fecha', 'agenda_diaria'], true))
+                @if ($needsSingleDate)
                     <div class="field">
                         <label for="fecha">Fecha</label>
-                        <input id="fecha" name="fecha" type="date" value="{{ $selectedFecha }}">
+                        <input id="fecha" name="fecha" type="date" value="{{ $selectedFecha }}" max="{{ $presetToday }}">
                     </div>
                 @endif
-                @if (in_array($selectedType, ['citas_medico', 'citas_especialidad', 'citas_estado', 'totales_periodo'], true))
+                @if ($needsRange)
                     <div class="field">
                         <label for="fecha_inicio">Fecha inicial</label>
-                        <input id="fecha_inicio" name="fecha_inicio" type="date" value="{{ $selectedFechaInicio }}">
+                        <input id="fecha_inicio" name="fecha_inicio" type="date" value="{{ $selectedFechaInicio }}" max="{{ $presetToday }}">
                     </div>
                     <div class="field">
                         <label for="fecha_fin">Fecha final</label>
-                        <input id="fecha_fin" name="fecha_fin" type="date" value="{{ $selectedFechaFin }}">
+                        <input id="fecha_fin" name="fecha_fin" type="date" value="{{ $selectedFechaFin }}" max="{{ $presetToday }}">
                     </div>
                 @endif
                 @if ($selectedType === 'citas_medico')
                     <div class="field">
                         <label for="id_medico">Médico</label>
-                        <select id="id_medico" name="id_medico">
+                        <select id="id_medico" name="id_medico" onchange="this.form.requestSubmit()">
                             <option value="">Seleccione</option>
                             @foreach ($physicians as $physician)
                                 <option value="{{ $physician->id_medico }}" @selected((string) $selectedMedico === (string) $physician->id_medico)>
@@ -81,7 +91,7 @@
                 @if ($selectedType === 'citas_especialidad')
                     <div class="field">
                         <label for="id_especialidad">Especialidad</label>
-                        <select id="id_especialidad" name="id_especialidad">
+                        <select id="id_especialidad" name="id_especialidad" onchange="this.form.requestSubmit()">
                             <option value="">Seleccione</option>
                             @foreach ($specialties as $specialty)
                                 <option value="{{ $specialty->id_especialidad }}" @selected((string) $selectedEspecialidad === (string) $specialty->id_especialidad)>
@@ -94,7 +104,7 @@
                 @if ($selectedType === 'citas_estado')
                     <div class="field">
                         <label for="estado">Estado</label>
-                        <select id="estado" name="estado">
+                        <select id="estado" name="estado" onchange="this.form.requestSubmit()">
                             <option value="">Seleccione</option>
                             @foreach (['Programada', 'Confirmada', 'Atendida', 'Cancelada', 'Inasistencia'] as $option)
                                 <option value="{{ $option }}" @selected($selectedEstado === $option)>{{ $option }}</option>
@@ -102,7 +112,22 @@
                         </select>
                     </div>
                 @endif
-                <button class="button" type="submit" name="generar" value="1">Generar reporte</button>
+
+                @if ($needsRange || $needsSingleDate)
+                    <div class="reports-date-presets" role="group" aria-label="Atajos de fecha">
+                        @if ($needsSingleDate)
+                            <a class="button button-inline button-quiet" href="{{ route('reports.generate', array_merge($baseQuery, ['fecha' => $presetToday])) }}">Hoy</a>
+                        @else
+                            <a class="button button-inline button-quiet" href="{{ route('reports.generate', array_merge($baseQuery, ['fecha_inicio' => $presetToday, 'fecha_fin' => $presetToday])) }}">Hoy</a>
+                            <a class="button button-inline button-quiet" href="{{ route('reports.generate', array_merge($baseQuery, ['fecha_inicio' => $presetWeekStart, 'fecha_fin' => $presetToday])) }}">Esta semana</a>
+                            <a class="button button-inline button-quiet" href="{{ route('reports.generate', array_merge($baseQuery, ['fecha_inicio' => $presetMonthStart, 'fecha_fin' => $presetToday])) }}">Este mes</a>
+                        @endif
+                    </div>
+                @endif
+
+                <div class="reports-filter-actions">
+                    <button class="button" type="submit" name="generar" value="1">Generar reporte</button>
+                </div>
             </form>
         </article>
 
@@ -180,7 +205,7 @@
                     <details class="reports-export">
                         <summary class="button button-inline">Exportar</summary>
                         <div class="reports-export-menu" role="menu">
-                            <a role="menuitem" href="{{ route('reports.export', array_merge($query, ['formato' => 'pdf'])) }}">PDF</a>
+                            <a role="menuitem" href="{{ route('reports.export', array_merge($query, ['formato' => 'pdf'])) }}" target="_blank" rel="noopener">PDF</a>
                             <a role="menuitem" href="{{ route('reports.export', array_merge($query, ['formato' => 'csv'])) }}">CSV</a>
                             <a role="menuitem" href="{{ route('reports.export', array_merge($query, ['formato' => 'excel'])) }}">Excel</a>
                         </div>
@@ -313,12 +338,12 @@
                     </div>
                 @endif
 
-                <p class="list-meta reports-result-footer">Mostrando {{ $recordCount }} de {{ $recordCount }} {{ $recordCount === 1 ? 'registro' : 'registros' }}</p>
+                <p class="list-meta reports-result-footer">Mostrando {{ $recordCount }} de {{ $recordCount }} {{ $recordCount === 1 ? 'registro' : 'registros' }} · PDF abre una vista lista para imprimir o guardar.</p>
             </article>
         @elseif ($selectedType === '')
-            <p class="list-meta">Seleccione un tipo de reporte e indique los filtros correspondientes.</p>
+            <p class="list-meta">Seleccione un tipo de reporte. Las fechas se completan solas; complete el resto de filtros si el tipo lo pide.</p>
         @else
-            <p class="list-meta">Indique los filtros del reporte seleccionado y pulse Generar reporte.</p>
+            <p class="list-meta">Complete el filtro pendiente (médico, especialidad o estado) para generar el reporte.</p>
         @endif
     </section>
 @endsection

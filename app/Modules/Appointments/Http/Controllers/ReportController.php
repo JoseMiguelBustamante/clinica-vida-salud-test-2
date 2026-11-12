@@ -7,6 +7,7 @@ namespace App\Modules\Appointments\Http\Controllers;
 use App\Modules\Appointments\Http\Requests\SearchAdministrativeReportsRequest;
 use App\Modules\Appointments\InvalidReportInput;
 use App\Modules\Appointments\ReportCriterionInvalid;
+use App\Modules\Appointments\ReportDateDefaults;
 use App\Modules\Appointments\ReportExportService;
 use App\Modules\Appointments\ReportService;
 use Illuminate\Http\RedirectResponse;
@@ -29,6 +30,13 @@ final class ReportController
         $result = $payload['result'];
         $status = $payload['status'];
 
+        $defaults = ReportDateDefaults::apply([
+            'tipo' => $result['type'],
+            'fecha' => $result['fecha'],
+            'fecha_inicio' => $result['fecha_inicio'],
+            'fecha_fin' => $result['fecha_fin'],
+        ]);
+
         return view('appointments.reports', [
             'types' => ReportService::types(),
             'type' => $result['type'],
@@ -38,14 +46,17 @@ final class ReportController
             'totals' => $status === null ? $result['totals'] : null,
             'physicians' => $result['physicians'],
             'specialties' => $result['specialties'],
-            'fecha' => $result['fecha'],
-            'fecha_inicio' => $result['fecha_inicio'],
-            'fecha_fin' => $result['fecha_fin'],
+            'fecha' => (string) ($defaults['fecha'] ?? ''),
+            'fecha_inicio' => (string) ($defaults['fecha_inicio'] ?? ''),
+            'fecha_fin' => (string) ($defaults['fecha_fin'] ?? ''),
             'id_medico' => $result['id_medico'],
             'id_especialidad' => $result['id_especialidad'],
             'estado' => $result['estado'],
             'status' => $status,
             'query' => $this->exportQuery($request),
+            'presetToday' => ReportDateDefaults::today(),
+            'presetWeekStart' => ReportDateDefaults::weekStart(),
+            'presetMonthStart' => ReportDateDefaults::monthStart(),
         ]);
     }
 
@@ -78,8 +89,10 @@ final class ReportController
      */
     private function buildReport(SearchAdministrativeReportsRequest $request, bool $forceGenerate = false): array
     {
-        $input = $request->validated();
-        $generate = $forceGenerate || ($input['generar'] ?? null) === '1';
+        $input = ReportDateDefaults::apply($request->validated());
+        $generate = $forceGenerate
+            || ($input['generar'] ?? null) === '1'
+            || $this->isReadyToAutoGenerate($input);
         $status = null;
         $result = [
             'type' => $input['tipo'] ?? '',
@@ -123,7 +136,7 @@ final class ReportController
      */
     private function exportQuery(SearchAdministrativeReportsRequest $request): array
     {
-        $input = $request->validated();
+        $input = ReportDateDefaults::apply($request->validated());
         $query = ['generar' => '1'];
         foreach (['tipo', 'fecha', 'fecha_inicio', 'fecha_fin', 'id_medico', 'id_especialidad', 'estado'] as $key) {
             if (isset($input[$key]) && $input[$key] !== null && $input[$key] !== '') {
@@ -132,5 +145,34 @@ final class ReportController
         }
 
         return $query;
+    }
+
+    /**
+     * @param  array<string, mixed>  $input
+     */
+    private function isReadyToAutoGenerate(array $input): bool
+    {
+        $type = (string) ($input['tipo'] ?? '');
+
+        return match ($type) {
+            ReportService::TYPE_APPOINTMENTS_ON_DATE, ReportService::TYPE_DAILY_AGENDA => $this->filled($input['fecha'] ?? null),
+            ReportService::TYPE_PERIOD_TOTALS => $this->filled($input['fecha_inicio'] ?? null) && $this->filled($input['fecha_fin'] ?? null),
+            ReportService::TYPE_REGISTERED_PATIENTS => true,
+            ReportService::TYPE_APPOINTMENTS_BY_PHYSICIAN => $this->filled($input['id_medico'] ?? null)
+                && $this->filled($input['fecha_inicio'] ?? null)
+                && $this->filled($input['fecha_fin'] ?? null),
+            ReportService::TYPE_APPOINTMENTS_BY_SPECIALTY => $this->filled($input['id_especialidad'] ?? null)
+                && $this->filled($input['fecha_inicio'] ?? null)
+                && $this->filled($input['fecha_fin'] ?? null),
+            ReportService::TYPE_APPOINTMENTS_BY_STATUS => $this->filled($input['estado'] ?? null)
+                && $this->filled($input['fecha_inicio'] ?? null)
+                && $this->filled($input['fecha_fin'] ?? null),
+            default => false,
+        };
+    }
+
+    private function filled(mixed $value): bool
+    {
+        return $value !== null && $value !== '';
     }
 }

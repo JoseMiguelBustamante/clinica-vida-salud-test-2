@@ -1722,6 +1722,21 @@ a.code-link:hover {
     justify-items: start;
 }
 
+.reports-filter-card {
+    padding: 1.25rem 1.25rem 1.35rem;
+}
+
+.reports-filter-card h2 {
+    margin: 0 0 0.45rem;
+}
+
+.reports-filter-hint {
+    margin: 0 0 1rem;
+    color: var(--clinic-muted);
+    font-size: 0.92rem;
+    line-height: 1.4;
+}
+
 .reports-filter-card .filter-bar {
     margin: 0;
     padding: 0;
@@ -1731,9 +1746,44 @@ a.code-link:hover {
 
 .reports-filter-bar {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 0.9rem 1rem;
     align-items: end;
+}
+
+.reports-field-type {
+    grid-column: 1 / -1;
+}
+
+.reports-date-presets {
+    grid-column: 1 / -1;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.55rem;
+}
+
+.reports-filter-actions {
+    grid-column: 1 / -1;
+}
+
+.reports-filter-actions .button {
+    width: 100%;
+}
+
+.button-quiet {
+    background: #ffffff;
+    color: var(--clinic-ink);
+    border: 1px solid var(--clinic-line);
+}
+
+.button-quiet:hover {
+    background: var(--clinic-panel);
+}
+
+@media (min-width: 52rem) {
+    .reports-filter-bar {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
 }
 
 .reports-kpi-grid {

@@ -8,6 +8,7 @@ use App\Modules\Identity\IdentityRepository;
 use App\Modules\Identity\PermissionCatalog;
 use App\Modules\MedicalStaff\SpecialtyRepository;
 use App\Modules\Patients\PatientRepository;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Mockery;
 use RuntimeException;
@@ -159,13 +160,78 @@ class ReportScreenTest extends TestCase
         $this->assertSame([], $this->app['db']->getConnections());
     }
 
-    public function test_reports_reject_a_missing_date_without_sql(): void
+    public function test_a_date_report_defaults_to_today_when_fecha_is_missing(): void
     {
+        Carbon::setTestNow(Carbon::parse('2026-11-11 15:00:00', 'UTC'));
         $this->authorizeReports();
+        $this->mockCatalogLookups();
+        $appointments = $this->app->make(AppointmentRepository::class);
+        $appointments->shouldReceive('getAppointmentsInRange')->once()
+            ->withArgs(function (string $start, string $end): bool {
+                return str_starts_with($start, '2026-11-11') && str_starts_with($end, '2026-11-12');
+            })
+            ->andReturn(collect());
 
         $this->withSession([Auth::guard('web')->getName() => 17]);
-        $this->from('/reportes')->get('/reportes?tipo=citas_fecha&generar=1')
-            ->assertRedirect('/reportes')->assertSessionHasErrors('fecha');
+        $this->get('/reportes?tipo=citas_fecha&generar=1')
+            ->assertOk()
+            ->assertSee('value="2026-11-11"', false)
+            ->assertSee('Total de citas');
+        $this->assertSame([], $this->app['db']->getConnections());
+        Carbon::setTestNow();
+    }
+
+    public function test_period_reports_default_to_week_start_through_today(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-11-11 15:00:00', 'UTC'));
+        $this->authorizeReports();
+        $this->mockCatalogLookups();
+        $appointments = $this->app->make(AppointmentRepository::class);
+        $appointments->shouldReceive('getAppointmentStatusCountsInRange')->once()
+            ->withArgs(function (string $start, string $end): bool {
+                return str_starts_with($start, '2026-11-09') && str_starts_with($end, '2026-11-12');
+            })
+            ->andReturn(collect());
+
+        $this->withSession([Auth::guard('web')->getName() => 17]);
+        $this->get('/reportes?tipo=totales_periodo')
+            ->assertOk()
+            ->assertSee('value="2026-11-09"', false)
+            ->assertSee('value="2026-11-11"', false)
+            ->assertSee('Atendidas');
+        $this->assertSame([], $this->app['db']->getConnections());
+        Carbon::setTestNow();
+    }
+
+    public function test_pdf_export_renders_utf8_table_view(): void
+    {
+        $this->authorizeReports();
+        $this->mockCatalogLookups();
+        $appointments = $this->app->make(AppointmentRepository::class);
+        $appointments->shouldReceive('getAppointmentsInRange')->once()->andReturn(collect([
+            (object) [
+                'id_cita' => 21,
+                'codigo' => 'CIT-1',
+                'inicio' => '2026-11-01T08:00:00+00:00',
+                'fin' => '2026-11-01T08:30:00+00:00',
+                'estado' => 'Cancelada',
+                'id_medico' => 4,
+                'motivo_consulta' => 'Nota clínica secreta',
+                'paciente_nombres' => 'Lili',
+                'paciente_apellidos' => 'Nuñez',
+                'medico_nombres' => 'Médico',
+                'medico_apellidos' => 'Test',
+                'especialidad_nombre' => 'Dermatología',
+            ],
+        ]));
+
+        $this->withSession([Auth::guard('web')->getName() => 17]);
+        $response = $this->get('/reportes/exportar?tipo=citas_fecha&fecha=2026-11-01&formato=pdf');
+        $response->assertOk();
+        $this->assertStringContainsString('text/html', (string) $response->headers->get('content-type'));
+        $response->assertSee('Nuñez')->assertSee('Médico')->assertSee('Dermatología')
+            ->assertSee('Imprimir / Guardar PDF')
+            ->assertDontSee('Nota clínica secreta');
         $this->assertSame([], $this->app['db']->getConnections());
     }
 

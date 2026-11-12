@@ -73,13 +73,13 @@ final class ReportExportService
      */
     public function toPdfResponse(array $sheet, string $basename): \Illuminate\Http\Response
     {
-        $pdf = new SimpleReportPdf;
-        $binary = $pdf->render($sheet['title'], $sheet['summary'], $sheet['headers'], $sheet['rows']);
-
-        return response($binary, 200, [
-            'Content-Type' => 'application/pdf',
-            'Content-Disposition' => 'attachment; filename="'.$basename.'.pdf"',
-        ]);
+        return response()
+            ->view('appointments.reports-pdf', [
+                'sheet' => $sheet,
+                'generatedAt' => now('UTC'),
+            ])
+            ->header('Content-Type', 'text/html; charset=UTF-8')
+            ->header('Content-Disposition', 'inline; filename="'.$basename.'.html"');
     }
 
     /**

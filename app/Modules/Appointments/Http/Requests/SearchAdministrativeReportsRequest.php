@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\Appointments\Http\Requests;
 
+use App\Modules\Appointments\ReportDateDefaults;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Validator;
 
@@ -12,6 +13,11 @@ final class SearchAdministrativeReportsRequest extends FormRequest
     public function authorize(): bool
     {
         return true;
+    }
+
+    protected function prepareForValidation(): void
+    {
+        $this->merge(ReportDateDefaults::apply($this->all()));
     }
 
     public function rules(): array
