@@ -110,7 +110,11 @@ final class ReportController
                     ->withErrors(['pregunta' => 'Genere un reporte primero para poder preguntar.']);
             }
 
-            if (! $this->isReadyToAutoGenerate($validated)) {
+            // "Generar reporte" with a new instruction must re-plan. Stale hidden
+            // tipo/fecha from the previous result would otherwise regenerate the same report.
+            $shouldReplan = $action === 'resumir' && $instruction !== '';
+
+            if ($shouldReplan || ! $this->isReadyToAutoGenerate($validated)) {
                 $plan = $this->assistant->planReportInstruction(
                     $instruction !== '' ? $instruction : 'Necesito ayuda para generar un reporte.',
                     ReportDateDefaults::today(),
@@ -118,13 +122,13 @@ final class ReportController
 
                 if ($plan['status'] === 'clarify') {
                     return redirect()
-                        ->route('reports.generate', $query)
+                        ->route('reports.generate', $shouldReplan ? [] : $query)
                         ->withFragment('asistente-reporte')
                         ->with('ai_clarifications', $plan['questions'])
                         ->with('ai_question', $instruction !== '' ? $instruction : null);
                 }
 
-                $validated = $this->mergePlanIntoInput($validated, $plan);
+                $validated = $this->criteriaFromPlan($validated, $plan);
                 $query = $this->queryFromInput($validated);
             } else {
                 $query = $this->queryFromInput($validated);
@@ -272,6 +276,9 @@ final class ReportController
     }
 
     /**
+     * Replace report criteria with the plan result so a previous report's hidden
+     * fields cannot leak into the next generate request.
+     *
      * @param  array<string, mixed>  $input
      * @param  array{
      *     tipo: ?string,
@@ -285,21 +292,19 @@ final class ReportController
      * }  $plan
      * @return array<string, mixed>
      */
-    private function mergePlanIntoInput(array $input, array $plan): array
+    private function criteriaFromPlan(array $input, array $plan): array
     {
-        foreach (['tipo', 'fecha', 'fecha_inicio', 'fecha_fin', 'estado'] as $key) {
-            if (($plan[$key] ?? null) !== null && ($plan[$key] ?? '') !== '') {
-                $input[$key] = $plan[$key];
-            }
-        }
-
-        foreach (['id_medico', 'id_especialidad'] as $key) {
-            if (($plan[$key] ?? null) !== null) {
-                $input[$key] = $plan[$key];
-            }
-        }
-
-        return $input;
+        return [
+            'accion' => $input['accion'] ?? 'resumir',
+            'pregunta' => $input['pregunta'] ?? null,
+            'tipo' => $plan['tipo'] ?? '',
+            'fecha' => $plan['fecha'] ?? '',
+            'fecha_inicio' => $plan['fecha_inicio'] ?? '',
+            'fecha_fin' => $plan['fecha_fin'] ?? '',
+            'id_medico' => $plan['id_medico'] ?? null,
+            'id_especialidad' => $plan['id_especialidad'] ?? null,
+            'estado' => $plan['estado'] ?? '',
+        ];
     }
 
     /**

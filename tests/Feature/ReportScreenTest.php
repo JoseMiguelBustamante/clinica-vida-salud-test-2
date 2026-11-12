@@ -589,6 +589,50 @@ class ReportScreenTest extends TestCase
         $this->assertSame([], $this->app['db']->getConnections());
     }
 
+    public function test_generate_replans_when_instruction_changes_after_a_previous_report(): void
+    {
+        config([
+            'openai.api_key' => 'test-openai-key',
+            'openai.model' => 'gpt-4o-mini',
+            'openai.base_url' => 'https://api.openai.com/v1',
+        ]);
+        Http::fake([
+            'api.openai.com/*' => Http::response([
+                'choices' => [[
+                    'message' => ['content' => 'Resumen de totales del período.'],
+                ]],
+            ], 200),
+        ]);
+
+        $this->authorizeReports(2);
+        $this->mockCatalogLookups(2);
+        $appointments = $this->app->make(AppointmentRepository::class);
+        $appointments->shouldReceive('getAppointmentsInRange')->never();
+        $appointments->shouldReceive('getAppointmentStatusCountsInRange')->twice()->andReturn(collect([
+            (object) ['estado' => 'Atendida', 'total' => 3],
+            (object) ['estado' => 'Cancelada', 'total' => 1],
+            (object) ['estado' => 'Inasistencia', 'total' => 0],
+        ]));
+
+        $this->withSession([Auth::guard('web')->getName() => 17]);
+        $response = $this->from('/reportes?tipo=agenda_diaria&fecha=2026-11-12&generar=1')
+            ->post('/reportes/asistente', [
+                'tipo' => 'agenda_diaria',
+                'fecha' => '2026-11-12',
+                'generar' => '1',
+                'accion' => 'resumir',
+                'pregunta' => 'Totales de atendidas y canceladas del 2026-11-01 al 2026-11-12',
+            ]);
+        $response->assertRedirect();
+        $this->followRedirects($response)
+            ->assertOk()
+            ->assertSee('Atendidas, canceladas e inasistencias en un período')
+            ->assertSee('2026-11-01 a 2026-11-12')
+            ->assertSee('Resumen de totales del período.')
+            ->assertSee('name="tipo" value="totales_periodo"', false);
+        $this->assertSame([], $this->app['db']->getConnections());
+    }
+
     public function test_ask_button_requires_an_already_generated_report(): void
     {
         config([
