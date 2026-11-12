@@ -73,8 +73,13 @@
                 </div>
                 <div class="reports-ai-actions">
                     <button class="button" type="submit" name="accion" value="resumir" @disabled(! ($aiConfigured ?? false))>Generar reporte</button>
-                    <button class="button button-inline button-quiet" type="submit" name="accion" value="preguntar" @disabled(! ($aiConfigured ?? false))>Preguntar</button>
+                    @if ($generated)
+                        <button class="button button-inline button-quiet" type="submit" name="accion" value="preguntar" @disabled(! ($aiConfigured ?? false))>Preguntar</button>
+                    @endif
                 </div>
+                @unless ($generated)
+                    <p class="reports-filter-hint" id="assistant-ask-hint">Preguntar se habilita cuando el reporte ya se generó sin error.</p>
+                @endunless
             </form>
         </article>
 
@@ -230,7 +235,7 @@
                 @endif
             </section>
 
-            <article class="list-card reports-result-card">
+            <article class="list-card reports-result-card" id="resultado-reporte">
                 <div class="reports-result-toolbar">
                     <div>
                         <h2>Resultado del reporte</h2>

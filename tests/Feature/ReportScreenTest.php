@@ -78,7 +78,8 @@ class ReportScreenTest extends TestCase
         @$dom->loadHTML($response->getContent());
         $xpath = new \DOMXPath($dom);
         $this->assertSame(1, $xpath->query('//textarea[@id="pregunta" and not(@disabled)]')->length);
-        $this->assertSame(2, $xpath->query('//form[contains(@class,"reports-ai-form")]//button[not(@disabled)]')->length);
+        $this->assertSame(1, $xpath->query('//form[contains(@class,"reports-ai-form")]//button[@name="accion" and @value="resumir" and not(@disabled)]')->length);
+        $this->assertSame(0, $xpath->query('//form[contains(@class,"reports-ai-form")]//button[@name="accion" and @value="preguntar"]')->length);
         $this->assertSame([], $this->app['db']->getConnections());
     }
 
@@ -99,12 +100,14 @@ class ReportScreenTest extends TestCase
         $response->assertOk()->assertSee('DEMO-30');
         $this->saveBrowserFixture('generated', $response->getContent());
         $response->assertSeeInOrder(['Asistente del reporte', 'Resultado del reporte'])
-            ->assertDontSee('Ir al asistente IA');
+            ->assertDontSee('Ir al asistente IA')
+            ->assertSee('Preguntar');
         $dom = new \DOMDocument;
         @$dom->loadHTML($response->getContent());
         $xpath = new \DOMXPath($dom);
         $this->assertSame(1, $xpath->query('//textarea[@id="pregunta" and not(@disabled)]')->length);
-        $this->assertSame(2, $xpath->query('//form[contains(@class,"reports-ai-form")]//button[not(@disabled)]')->length);
+        $this->assertSame(1, $xpath->query('//form[contains(@class,"reports-ai-form")]//button[@name="accion" and @value="resumir" and not(@disabled)]')->length);
+        $this->assertSame(1, $xpath->query('//form[contains(@class,"reports-ai-form")]//button[@name="accion" and @value="preguntar" and not(@disabled)]')->length);
         $this->assertSame([], $this->app['db']->getConnections());
     }
 
@@ -295,6 +298,7 @@ class ReportScreenTest extends TestCase
         $this->assertStringContainsString('text/html', (string) $response->headers->get('content-type'));
         $response->assertSee('Nuñez')->assertSee('Médico')->assertSee('Dermatología')
             ->assertSee('Imprimir / Guardar PDF')
+            ->assertSee('table-wrap', false)
             ->assertDontSee('Nota clínica secreta');
         $this->assertSame([], $this->app['db']->getConnections());
     }
@@ -524,7 +528,7 @@ class ReportScreenTest extends TestCase
 
         $this->withSession([Auth::guard('web')->getName() => 17]);
         $response = $this->from('/reportes')->post('/reportes/asistente', [
-            'accion' => 'preguntar',
+            'accion' => 'resumir',
             'pregunta' => 'Quiero totales de atendidas y canceladas',
         ]);
         $response->assertRedirect();
@@ -572,15 +576,40 @@ class ReportScreenTest extends TestCase
 
         $this->withSession([Auth::guard('web')->getName() => 17]);
         $response = $this->from('/reportes')->post('/reportes/asistente', [
-            'accion' => 'preguntar',
-            'pregunta' => 'Armá citas del 2026-11-01 y decime cuántas canceladas hubo',
+            'accion' => 'resumir',
+            'pregunta' => 'Armá citas del 2026-11-01',
         ]);
         $response->assertRedirect();
         $this->followRedirects($response)
             ->assertOk()
             ->assertSee('Hay 0 canceladas en el reporte.')
             ->assertSee('CIT-1')
+            ->assertSee('Preguntar')
             ->assertDontSee('Nota clínica secreta');
+        $this->assertSame([], $this->app['db']->getConnections());
+    }
+
+    public function test_ask_button_requires_an_already_generated_report(): void
+    {
+        config([
+            'openai.api_key' => 'test-openai-key',
+            'openai.model' => 'gpt-4o-mini',
+            'openai.base_url' => 'https://api.openai.com/v1',
+        ]);
+        Http::fake();
+        $this->authorizeReports(2);
+        $this->mockCatalogLookups(1);
+
+        $this->withSession([Auth::guard('web')->getName() => 17]);
+        $response = $this->from('/reportes')->post('/reportes/asistente', [
+            'accion' => 'preguntar',
+            'pregunta' => '¿Cuántas canceladas hubo?',
+        ]);
+        $response->assertRedirect();
+        $this->followRedirects($response)
+            ->assertOk()
+            ->assertSee('Genere un reporte primero para poder preguntar.');
+        Http::assertNothingSent();
         $this->assertSame([], $this->app['db']->getConnections());
     }
 

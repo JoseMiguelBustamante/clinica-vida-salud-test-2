@@ -103,6 +103,13 @@ final class ReportController
         $answer = null;
 
         try {
+            if ($action === 'preguntar' && ! $this->isReadyToAutoGenerate($validated)) {
+                return redirect()
+                    ->route('reports.generate', $query)
+                    ->withFragment('asistente-reporte')
+                    ->withErrors(['pregunta' => 'Genere un reporte primero para poder preguntar.']);
+            }
+
             if (! $this->isReadyToAutoGenerate($validated)) {
                 $plan = $this->assistant->planReportInstruction(
                     $instruction !== '' ? $instruction : 'Necesito ayuda para generar un reporte.',
@@ -112,15 +119,13 @@ final class ReportController
                 if ($plan['status'] === 'clarify') {
                     return redirect()
                         ->route('reports.generate', $query)
+                        ->withFragment('asistente-reporte')
                         ->with('ai_clarifications', $plan['questions'])
                         ->with('ai_question', $instruction !== '' ? $instruction : null);
                 }
 
                 $validated = $this->mergePlanIntoInput($validated, $plan);
                 $query = $this->queryFromInput($validated);
-                if ($action === 'preguntar' && $instruction === '' && is_string($plan['pregunta'] ?? null)) {
-                    $instruction = trim((string) $plan['pregunta']);
-                }
             } else {
                 $query = $this->queryFromInput($validated);
             }
@@ -128,6 +133,7 @@ final class ReportController
             if (! $this->isReadyToAutoGenerate($validated)) {
                 return redirect()
                     ->route('reports.generate', $this->assistantQueryFromInput($validated))
+                    ->withFragment('asistente-reporte')
                     ->with('ai_clarifications', ['Faltan datos para generar el reporte. Indique tipo y fechas (solo día).'])
                     ->with('ai_question', $instruction !== '' ? $instruction : null);
             }
@@ -136,6 +142,7 @@ final class ReportController
             if ($payload['status'] !== null || ! $payload['result']['generated']) {
                 return redirect()
                     ->route('reports.generate', $query)
+                    ->withFragment('asistente-reporte')
                     ->withErrors(['tipo' => $payload['status'] ?? 'No fue posible preparar el reporte para el asistente.']);
             }
 
@@ -147,32 +154,38 @@ final class ReportController
             } catch (ReportAiNotConfigured) {
                 return redirect()
                     ->route('reports.generate', $query)
+                    ->withFragment('resultado-reporte')
                     ->withErrors(['pregunta' => 'El reporte se generó, pero el asistente no está configurado. Defina OPENAI_API_KEY, OPENAI_BASE_URL y OPENAI_MODEL en Dokploy.'])
                     ->with('ai_question', $instruction !== '' ? $instruction : null);
             } catch (ReportAiUnavailable) {
                 return redirect()
                     ->route('reports.generate', $query)
+                    ->withFragment('resultado-reporte')
                     ->withErrors(['pregunta' => 'El reporte se generó, pero no fue posible obtener la respuesta de la IA. Revise el modelo/créditos en Dokploy o reintente.'])
                     ->with('ai_question', $instruction !== '' ? $instruction : null);
             }
         } catch (ReportAiNotConfigured) {
             return redirect()
                 ->route('reports.generate', $query)
+                ->withFragment('asistente-reporte')
                 ->withErrors(['pregunta' => 'El asistente no está configurado. Defina OPENAI_API_KEY, OPENAI_BASE_URL y OPENAI_MODEL en Dokploy.']);
         } catch (ReportAiUnavailable) {
             return redirect()
                 ->route('reports.generate', $query)
+                ->withFragment('asistente-reporte')
                 ->withErrors(['pregunta' => 'No fue posible obtener una respuesta del asistente.']);
         } catch (Throwable $exception) {
             Log::error('[ReportController - askReportAssistant] '.$exception::class);
 
             return redirect()
                 ->route('reports.generate', $query)
+                ->withFragment('asistente-reporte')
                 ->withErrors(['pregunta' => 'No fue posible obtener una respuesta del asistente.']);
         }
 
         return redirect()
             ->route('reports.generate', $query)
+            ->withFragment('resultado-reporte')
             ->with('ai_answer', $answer)
             ->with('ai_question', $question ?? 'Resumen del reporte');
     }

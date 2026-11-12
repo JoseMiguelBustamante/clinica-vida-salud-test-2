@@ -45,24 +45,26 @@
             cursor: pointer;
         }
         .sheet {
-            width: min(100% - 2rem, 56rem);
-            margin: 1.25rem auto 2rem;
-            padding: 1.5rem 1.6rem 1.75rem;
+            width: min(100% - 1.25rem, 56rem);
+            margin: 1rem auto 1.5rem;
+            padding: 1.15rem 1rem 1.35rem;
             background: #fff;
             border: 1px solid var(--line);
             border-radius: 1rem;
+            overflow-x: hidden;
         }
         .brand {
             display: flex;
             justify-content: space-between;
-            gap: 1rem;
+            gap: 0.75rem;
+            flex-wrap: wrap;
             padding-bottom: 1rem;
             border-bottom: 2px solid var(--green);
             margin-bottom: 1rem;
         }
         .brand h1 {
             margin: 0 0 0.25rem;
-            font-size: 1.35rem;
+            font-size: 1.2rem;
         }
         .brand p { margin: 0; color: var(--muted); font-size: 0.9rem; }
         .summary {
@@ -73,30 +75,56 @@
             background: var(--panel);
             border-radius: 0.75rem;
         }
-        .summary p { margin: 0; }
+        .summary p { margin: 0; overflow-wrap: anywhere; }
+        .table-wrap {
+            width: 100%;
+            max-width: 100%;
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+            border: 1px solid var(--line);
+            border-radius: 0.65rem;
+        }
         table {
             width: 100%;
+            min-width: 36rem;
             border-collapse: collapse;
-            font-size: 0.86rem;
+            font-size: 0.82rem;
         }
         th, td {
-            padding: 0.55rem 0.45rem;
+            padding: 0.5rem 0.4rem;
             border-bottom: 1px solid var(--line);
             text-align: left;
             vertical-align: top;
+            overflow-wrap: anywhere;
+            word-break: break-word;
         }
         th {
             background: var(--panel);
             color: var(--muted);
-            font-size: 0.78rem;
+            font-size: 0.72rem;
             text-transform: uppercase;
             letter-spacing: 0.02em;
+            white-space: nowrap;
         }
         tr:nth-child(even) td { background: #fbfdff; }
         .footer {
             margin-top: 1.25rem;
             color: var(--muted);
             font-size: 0.82rem;
+        }
+        @media (max-width: 40rem) {
+            .toolbar {
+                padding: 0.75rem 0.9rem;
+            }
+            .sheet {
+                width: calc(100% - 1rem);
+                margin: 0.75rem auto 1.25rem;
+                padding: 0.95rem 0.75rem 1.1rem;
+            }
+            table {
+                font-size: 0.76rem;
+                min-width: 32rem;
+            }
         }
         @media print {
             body { background: #fff; }
@@ -107,6 +135,16 @@
                 border: 0;
                 border-radius: 0;
                 padding: 0;
+                overflow: visible;
+            }
+            .table-wrap {
+                overflow: visible;
+                border: 0;
+                border-radius: 0;
+            }
+            table {
+                min-width: 0;
+                font-size: 0.78rem;
             }
         }
     </style>
@@ -137,28 +175,30 @@
             @endforeach
         </section>
 
-        <table>
-            <thead>
-                <tr>
-                    @foreach ($sheet['headers'] as $header)
-                        <th>{{ $header }}</th>
-                    @endforeach
-                </tr>
-            </thead>
-            <tbody>
-                @forelse ($sheet['rows'] as $row)
+        <div class="table-wrap">
+            <table>
+                <thead>
                     <tr>
-                        @foreach ($row as $cell)
-                            <td>{{ $cell }}</td>
+                        @foreach ($sheet['headers'] as $header)
+                            <th>{{ $header }}</th>
                         @endforeach
                     </tr>
-                @empty
-                    <tr>
-                        <td colspan="{{ max(count($sheet['headers']), 1) }}">No hay datos para la consulta.</td>
-                    </tr>
-                @endforelse
-            </tbody>
-        </table>
+                </thead>
+                <tbody>
+                    @forelse ($sheet['rows'] as $row)
+                        <tr>
+                            @foreach ($row as $cell)
+                                <td>{{ $cell }}</td>
+                            @endforeach
+                        </tr>
+                    @empty
+                        <tr>
+                            <td colspan="{{ max(count($sheet['headers']), 1) }}">No hay datos para la consulta.</td>
+                        </tr>
+                    @endforelse
+                </tbody>
+            </table>
+        </div>
 
         <p class="footer">{{ count($sheet['rows']) }} {{ count($sheet['rows']) === 1 ? 'registro' : 'registros' }} · Sin diagnósticos ni notas clínicas.</p>
     </main>
