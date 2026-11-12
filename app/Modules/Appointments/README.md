@@ -4,7 +4,10 @@ Owns the public `GET /` landing page and the appointment workflow through
 administrative reports.
 
 CU08 consults availability (`citas.consultar`). Showing a slot does not reserve
-it. CU09 books (`citas.programar`) as Programada. CU10 reschedules the same
+it. CU09 books (`citas.programar`) as Programada. Consultation payment
+(`citas.pagar`) starts Stripe Checkout in BOB for a Programada visit; the
+webhook confirms `pago_consulta` and moves the appointment to Confirmada.
+Cash/manual confirmation via CU12 remains available. CU10 reschedules the same
 row (`citas.reprogramar`). CU11 cancels (`citas.cancelar`) to Cancelada and
 discards pending reminders. CU12 (`citas.asistencia`) records confirmation,
 arrival and Inasistencia.

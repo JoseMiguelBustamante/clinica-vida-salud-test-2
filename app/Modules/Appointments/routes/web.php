@@ -3,6 +3,7 @@
 use App\Modules\Appointments\Http\Controllers\AppointmentController;
 use App\Modules\Appointments\Http\Controllers\AvailabilityController;
 use App\Modules\Appointments\Http\Controllers\ClinicalHistoryController;
+use App\Modules\Appointments\Http\Controllers\ConsultationPaymentController;
 use App\Modules\Appointments\Http\Controllers\ReportController;
 use App\Modules\Identity\PermissionCatalog;
 use App\Modules\Identity\RequireActiveSession;
@@ -12,6 +13,9 @@ use Illuminate\Support\Facades\Route;
 Route::middleware('web')->group(function (): void {
     Route::view('/', 'home')->name('home');
 });
+
+Route::post('/pagos/stripe/webhook', [ConsultationPaymentController::class, 'handleStripeWebhook'])
+    ->name('payments.stripe.webhook');
 
 Route::middleware([
     'web',
@@ -39,6 +43,22 @@ Route::middleware([
     RequirePermission::class.':'.PermissionCatalog::BOOK_APPOINTMENTS.','.PermissionCatalog::MARK_ATTENDED,
 ])->group(function (): void {
     Route::get('/citas/{cita}', [AppointmentController::class, 'getAppointmentById'])->name('appointments.show')->whereNumber('cita');
+});
+
+Route::middleware([
+    'web',
+    RequireActiveSession::class,
+    RequirePermission::class.':'.PermissionCatalog::PAY_CONSULTATIONS,
+])->group(function (): void {
+    Route::post('/citas/{cita}/pago/stripe', [ConsultationPaymentController::class, 'startConsultationCheckout'])
+        ->name('appointments.payment.stripe')
+        ->whereNumber('cita');
+    Route::get('/citas/{cita}/pago/exito', [ConsultationPaymentController::class, 'showConsultationPaymentSuccess'])
+        ->name('appointments.payment.success')
+        ->whereNumber('cita');
+    Route::get('/citas/{cita}/pago/cancelado', [ConsultationPaymentController::class, 'showConsultationPaymentCancel'])
+        ->name('appointments.payment.cancel')
+        ->whereNumber('cita');
 });
 
 Route::middleware([

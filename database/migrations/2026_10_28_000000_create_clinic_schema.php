@@ -24,6 +24,7 @@ return new class extends Migration
     {
         DB::unprepared('DROP TABLE IF EXISTS
             public.bitacora,
+            public.pago_consulta,
             public.evento_cita,
             public.recordatorio_cita,
             public.registro_atencion,

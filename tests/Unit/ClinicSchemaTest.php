@@ -13,9 +13,10 @@ class ClinicSchemaTest extends TestCase
         $paths = glob(dirname(__DIR__, 2).'/database/migrations/*.php');
         sort($paths);
 
-        $this->assertCount(2, $paths);
+        $this->assertCount(3, $paths);
         $this->assertSame('2026_10_28_000000_create_clinic_schema.php', basename($paths[0]));
         $this->assertSame('2026_11_01_120000_add_bitacora.php', basename($paths[1]));
+        $this->assertSame('2026_11_12_120000_add_pago_consulta.php', basename($paths[2]));
         foreach ($paths as $path) {
             $migration = require $path;
             $this->assertInstanceOf(Migration::class, $migration);
@@ -64,9 +65,9 @@ class ClinicSchemaTest extends TestCase
         $sql = file_get_contents($path);
         $canonical = trim(preg_replace('/\s+/', ' ', preg_replace('/--[^\n]*/', '', $sql)));
 
-        $this->assertSame('81f5d2d3ad028d51972fd95503ad937cf4c51a7be3055418794d4a5ccac7ffae', hash('sha256', $canonical));
-        $this->assertSame(18, preg_match_all('/CREATE TABLE public\./', $sql));
-        $this->assertSame(13, preg_match_all('/CREATE INDEX /', $sql));
+        $this->assertSame('7b2be5ac7f2ed3422c254dfcb40d06e3152c831e27b1df1900f979b0bd6978b0', hash('sha256', $canonical));
+        $this->assertSame(19, preg_match_all('/CREATE TABLE public\./', $sql));
+        $this->assertSame(14, preg_match_all('/CREATE INDEX /', $sql));
         $this->assertDoesNotMatchRegularExpression('/\b(?:BEGIN|COMMIT|CASCADE)\b/i', $sql);
     }
 }

@@ -281,6 +281,33 @@ CREATE INDEX ix_recordatorio_cita ON public.recordatorio_cita (id_cita);
 CREATE INDEX ix_evento_cita ON public.evento_cita (id_cita);
 CREATE INDEX ix_evento_usuario ON public.evento_cita (id_usuario);
 
+-- Cobro de consulta (Stripe Checkout). Una fila por intento de pago.
+CREATE TABLE public.pago_consulta (
+   id_pago INTEGER GENERATED ALWAYS AS IDENTITY NOT NULL,
+   fecha_hora TIMESTAMPTZ NOT NULL,
+   monto NUMERIC(12,2) NOT NULL,
+   moneda VARCHAR(3) NOT NULL,
+   metodo VARCHAR(20) NOT NULL,
+   estado VARCHAR(20) NOT NULL,
+   referencia_externa VARCHAR(200),
+   id_cita INTEGER NOT NULL,
+   id_usuario INTEGER NOT NULL,
+   CONSTRAINT pk_pago_consulta PRIMARY KEY (id_pago),
+   CONSTRAINT uq_pago_consulta_referencia UNIQUE (referencia_externa),
+   CONSTRAINT fk_pago_consulta_cita FOREIGN KEY (id_cita)
+       REFERENCES public.cita_medica (id_cita),
+   CONSTRAINT fk_pago_consulta_usuario FOREIGN KEY (id_usuario)
+       REFERENCES public.usuario (id_usuario),
+   CONSTRAINT ck_pago_consulta_monto CHECK (monto > 0),
+   CONSTRAINT ck_pago_consulta_moneda CHECK (moneda IN ('BOB')),
+   CONSTRAINT ck_pago_consulta_metodo CHECK (metodo IN ('STRIPE')),
+   CONSTRAINT ck_pago_consulta_estado CHECK (
+       estado IN ('Pendiente', 'Confirmado', 'Rechazado', 'Devuelto')
+   )
+);
+
+CREATE INDEX ix_pago_consulta_cita ON public.pago_consulta (id_cita);
+
 -- Consulta administrativa de accesos y cambios. No almacena contraseñas.
 CREATE TABLE public.bitacora (
    id_bitacora INTEGER GENERATED ALWAYS AS IDENTITY NOT NULL,

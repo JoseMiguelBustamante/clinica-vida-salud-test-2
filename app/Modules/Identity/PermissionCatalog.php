@@ -20,6 +20,8 @@ final class PermissionCatalog
 
     public const BOOK_APPOINTMENTS = 'citas.programar';
 
+    public const PAY_CONSULTATIONS = 'citas.pagar';
+
     public const RESCHEDULE_APPOINTMENTS = 'citas.reprogramar';
 
     public const CANCEL_APPOINTMENTS = 'citas.cancelar';
@@ -63,6 +65,7 @@ final class PermissionCatalog
             ['codigo' => self::MANAGE_SCHEDULES, 'descripcion' => 'Configurar horarios de atención de los médicos'],
             ['codigo' => self::CONSULT_AVAILABILITY, 'descripcion' => 'Consultar médicos habilitados e intervalos disponibles'],
             ['codigo' => self::BOOK_APPOINTMENTS, 'descripcion' => 'Programar citas médicas en intervalos disponibles'],
+            ['codigo' => self::PAY_CONSULTATIONS, 'descripcion' => 'Cobrar la consulta de una cita con pasarela en línea'],
             ['codigo' => self::RESCHEDULE_APPOINTMENTS, 'descripcion' => 'Reprogramar citas médicas existentes'],
             ['codigo' => self::CANCEL_APPOINTMENTS, 'descripcion' => 'Cancelar citas médicas y liberar el intervalo'],
             ['codigo' => self::RECORD_ATTENDANCE, 'descripcion' => 'Registrar confirmación, llegada e inasistencia'],
@@ -104,6 +107,7 @@ final class PermissionCatalog
                 self::MANAGE_SCHEDULES,
                 self::CONSULT_AVAILABILITY,
                 self::BOOK_APPOINTMENTS,
+                self::PAY_CONSULTATIONS,
                 self::RESCHEDULE_APPOINTMENTS,
                 self::CANCEL_APPOINTMENTS,
                 self::RECORD_ATTENDANCE,
@@ -117,6 +121,7 @@ final class PermissionCatalog
                 self::MANAGE_PATIENTS,
                 self::CONSULT_AVAILABILITY,
                 self::BOOK_APPOINTMENTS,
+                self::PAY_CONSULTATIONS,
                 self::RESCHEDULE_APPOINTMENTS,
                 self::CANCEL_APPOINTMENTS,
                 self::RECORD_ATTENDANCE,

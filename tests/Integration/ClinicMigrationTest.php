@@ -173,7 +173,7 @@ class ClinicMigrationTest extends TestCase
             $actual[$column->relname][] = ['name' => $column->attname, 'type' => $column->type, 'required' => (bool) $column->attnotnull, 'identity' => $column->attidentity];
         }
         ksort($expected);
-        $this->assertCount(18, $expected);
+        $this->assertCount(19, $expected);
         $this->assertSame($expected, $actual);
 
         $actualConstraints = [];

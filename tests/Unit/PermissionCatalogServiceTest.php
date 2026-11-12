@@ -39,10 +39,12 @@ class PermissionCatalogServiceTest extends TestCase
                         PermissionCatalog::MARK_ATTENDED,
                         PermissionCatalog::CONSULT_AGENDA,
                     ]
+                    && in_array(PermissionCatalog::PAY_CONSULTATIONS, $assignments[PermissionCatalog::ADMINISTRATOR_ROLE], true)
                     && $assignments[PermissionCatalog::RECEPTIONIST_ROLE] === [
                         PermissionCatalog::MANAGE_PATIENTS,
                         PermissionCatalog::CONSULT_AVAILABILITY,
                         PermissionCatalog::BOOK_APPOINTMENTS,
+                        PermissionCatalog::PAY_CONSULTATIONS,
                         PermissionCatalog::RESCHEDULE_APPOINTMENTS,
                         PermissionCatalog::CANCEL_APPOINTMENTS,
                         PermissionCatalog::RECORD_ATTENDANCE,

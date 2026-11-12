@@ -12,6 +12,7 @@ use App\Modules\Appointments\AppointmentNotReschedulable;
 use App\Modules\Appointments\AppointmentReminderService;
 use App\Modules\Appointments\AppointmentService;
 use App\Modules\Appointments\AvailabilityService;
+use App\Modules\Appointments\ConsultationPaymentService;
 use App\Modules\Appointments\Http\Requests\CancelAppointmentRequest;
 use App\Modules\Appointments\Http\Requests\ConfirmAppointmentRequest;
 use App\Modules\Appointments\Http\Requests\PrepareAppointmentRequest;
@@ -45,6 +46,7 @@ final class AppointmentController
         private AppointmentService $appointments,
         private AvailabilityService $availability,
         private AppointmentReminderService $reminders,
+        private ConsultationPaymentService $consultationPayments,
         private ActivityLogService $activity,
     ) {}
 
@@ -163,10 +165,20 @@ final class AppointmentController
                 }
             }
 
+            $paymentOverview = null;
+            if (in_array(PermissionCatalog::PAY_CONSULTATIONS, $codes, true)) {
+                try {
+                    $paymentOverview = $this->consultationPayments->overviewForAppointment($cita);
+                } catch (Throwable $exception) {
+                    Log::error('[AppointmentController - payment overview] '.$exception::class);
+                }
+            }
+
             return view('appointments.show', [
                 'appointment' => $appointment,
                 'reminder' => $reminder,
                 'canManageReminders' => $canManageReminders,
+                'paymentOverview' => $paymentOverview,
             ]);
         } catch (AppointmentNotFound) {
             return $restrictedToOwnAgenda

@@ -4,6 +4,8 @@ namespace App\Providers;
 
 use App\Modules\Appointments\AppointmentReminderMailer;
 use App\Modules\Appointments\LaravelAppointmentReminderMailer;
+use App\Modules\Appointments\StripeCheckoutGateway;
+use App\Modules\Appointments\StripeHttpCheckoutGateway;
 use Illuminate\Support\ServiceProvider;
 
 class ModuleServiceProvider extends ServiceProvider
@@ -11,6 +13,7 @@ class ModuleServiceProvider extends ServiceProvider
     public function register(): void
     {
         $this->app->singleton(AppointmentReminderMailer::class, LaravelAppointmentReminderMailer::class);
+        $this->app->singleton(StripeCheckoutGateway::class, StripeHttpCheckoutGateway::class);
     }
 
     public function boot(): void

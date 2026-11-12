@@ -93,6 +93,41 @@
             </dl>
         </article>
 
+        @if ($paymentOverview !== null)
+            <article class="list-card detail-card" aria-labelledby="payment-title">
+                <h2 id="payment-title">Pago de consulta</h2>
+                <dl class="detail-list">
+                    <div>
+                        <dt>Tarifa</dt>
+                        <dd>{{ $paymentOverview['amount'] }} {{ $paymentOverview['currency'] }}</dd>
+                    </div>
+                    <div>
+                        <dt>Estado del pago</dt>
+                        <dd>
+                            @if ($paymentOverview['payment'])
+                                {{ $paymentOverview['payment']->estado }}
+                            @else
+                                Sin cobro iniciado
+                            @endif
+                        </dd>
+                    </div>
+                </dl>
+                @if ($paymentOverview['can_start'] && $paymentOverview['configured'])
+                    <form method="post" action="{{ route('appointments.payment.stripe', $appointment->id_cita, false) }}" class="status-form">
+                        @csrf
+                        <button class="button button-inline" type="submit">Pagar consulta con Stripe</button>
+                    </form>
+                    <p class="list-meta">Abre Stripe Checkout (modo test, BOB). Al confirmar el cobro la cita pasa a Confirmada.</p>
+                @elseif ($paymentOverview['can_start'] && ! $paymentOverview['configured'])
+                    <p class="list-meta">El cobro en línea no está configurado en este entorno.</p>
+                @elseif ($paymentOverview['payment'] && $paymentOverview['payment']->estado === 'Confirmado')
+                    <p class="list-meta">La consulta ya está cobrada.</p>
+                @else
+                    <p class="list-meta">Esta cita no admite un nuevo cobro en línea.</p>
+                @endif
+            </article>
+        @endif
+
         @if ($canManageReminders ?? false)
             <article class="list-card detail-card" aria-labelledby="reminder-title">
                 <h2 id="reminder-title">Recordatorio por correo</h2>

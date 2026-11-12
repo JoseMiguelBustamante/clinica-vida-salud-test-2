@@ -15,6 +15,9 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->trustProxies(at: '*');
+        $middleware->validateCsrfTokens(except: [
+            'pagos/stripe/webhook',
+        ]);
         $middleware->trimStrings(except: [fn (Request $request) => $request->is('auth/login', 'login', 'usuarios', 'usuarios/*')]);
         $middleware->convertEmptyStringsToNull(except: [fn (Request $request) => $request->is('auth/login', 'login')]);
     })

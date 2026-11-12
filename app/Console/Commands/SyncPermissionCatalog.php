@@ -18,8 +18,8 @@ class SyncPermissionCatalog extends Command
         Requires an already migrated PostgreSQL database. Creates missing rol, permiso and
         rol_permiso rows from the clinic catalog. Existing usernames, emails and password hashes
         are not changed.         Administrador receives usuarios.administrar, pacientes.gestionar,
-        especialidades.gestionar, medicos.gestionar, horarios.gestionar, citas.consultar, citas.programar, citas.reprogramar, citas.cancelar, citas.asistencia, citas.atender, citas.agenda, citas.historial, reportes.generar and bitacora.consultar;
-        Recepcionista receives pacientes.gestionar, citas.consultar, citas.programar, citas.reprogramar, citas.cancelar, citas.asistencia, citas.agenda and citas.historial;
+        especialidades.gestionar, medicos.gestionar, horarios.gestionar, citas.consultar, citas.programar, citas.pagar, citas.reprogramar, citas.cancelar, citas.asistencia, citas.atender, citas.agenda, citas.historial, reportes.generar and bitacora.consultar;
+        Recepcionista receives pacientes.gestionar, citas.consultar, citas.programar, citas.pagar, citas.reprogramar, citas.cancelar, citas.asistencia, citas.agenda and citas.historial;
         Médico receives citas.atender and citas.agenda;
         Paciente receives perfil.actualizar, informacion.declarar and historial.consultar. Idempotent: safe to rerun. No password prompts, arguments, defaults
         or environment writes. Signed-in requests apply missing catalog rows automatically; this
