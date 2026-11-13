@@ -34,48 +34,72 @@
                 <button class="button" type="submit">Buscar</button>
             </form>
 
-            <div class="table-wrap">
-                <table class="data-table">
-                    <thead>
-                        <tr>
-                            <th>CI</th>
-                            <th>Paciente</th>
-                            <th>Teléfono</th>
-                            <th>Estado</th>
-                            <th>Acciones</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        @forelse ($patients as $patient)
+            @if ($patients->isEmpty())
+                <p class="stack-card-empty">No hay pacientes que coincidan con la búsqueda.</p>
+            @else
+                <ul class="stack-cards patient-cards">
+                    @foreach ($patients as $patient)
+                        <li class="stack-card">
+                            <div class="stack-card-top">
+                                <strong class="stack-card-title patient-name">{{ $patient->nombres }} {{ $patient->apellidos }}</strong>
+                                <span class="status-pill {{ $patient->activo ? 'is-active' : 'is-inactive' }}">
+                                    {{ $patient->activo ? 'Activo' : 'Inactivo' }}
+                                </span>
+                            </div>
+                            <div class="stack-card-meta">
+                                <span>CI {{ $patient->ci ?: '—' }}</span>
+                                <span>Tel. {{ $patient->telefono ?: '—' }}</span>
+                            </div>
+                            <nav class="row-actions" aria-label="Acciones de {{ $patient->nombres }} {{ $patient->apellidos }}">
+                                <a class="row-action" href="{{ route('patients.show', $patient->id_paciente) }}">Ver</a>
+                                <a class="row-action" href="{{ route('patients.edit', $patient->id_paciente) }}">Modificar</a>
+                                @if ($canConsultHistory)
+                                    <a class="row-action" href="{{ route('appointments.history', ['id_paciente' => $patient->id_paciente]) }}">Historial</a>
+                                @endif
+                            </nav>
+                        </li>
+                    @endforeach
+                </ul>
+
+                <div class="table-wrap stack-table-wrap">
+                    <table class="data-table">
+                        <thead>
                             <tr>
-                                <td>{{ $patient->ci ?: '—' }}</td>
-                                <td>
-                                    <strong class="patient-name">{{ $patient->nombres }} {{ $patient->apellidos }}</strong>
-                                </td>
-                                <td>{{ $patient->telefono ?: '—' }}</td>
-                                <td>
-                                    <span class="status-pill {{ $patient->activo ? 'is-active' : 'is-inactive' }}">
-                                        {{ $patient->activo ? 'Activo' : 'Inactivo' }}
-                                    </span>
-                                </td>
-                                <td>
-                                    <nav class="row-actions" aria-label="Acciones de {{ $patient->nombres }} {{ $patient->apellidos }}">
-                                        <a class="row-action" href="{{ route('patients.show', $patient->id_paciente) }}">Ver</a>
-                                        <a class="row-action" href="{{ route('patients.edit', $patient->id_paciente) }}">Modificar</a>
-                                        @if ($canConsultHistory)
-                                            <a class="row-action" href="{{ route('appointments.history', ['id_paciente' => $patient->id_paciente]) }}">Historial</a>
-                                        @endif
-                                    </nav>
-                                </td>
+                                <th>CI</th>
+                                <th>Paciente</th>
+                                <th>Teléfono</th>
+                                <th>Estado</th>
+                                <th>Acciones</th>
                             </tr>
-                        @empty
-                            <tr>
-                                <td colspan="5">No hay pacientes que coincidan con la búsqueda.</td>
-                            </tr>
-                        @endforelse
-                    </tbody>
-                </table>
-            </div>
+                        </thead>
+                        <tbody>
+                            @foreach ($patients as $patient)
+                                <tr>
+                                    <td>{{ $patient->ci ?: '—' }}</td>
+                                    <td>
+                                        <strong class="patient-name">{{ $patient->nombres }} {{ $patient->apellidos }}</strong>
+                                    </td>
+                                    <td>{{ $patient->telefono ?: '—' }}</td>
+                                    <td>
+                                        <span class="status-pill {{ $patient->activo ? 'is-active' : 'is-inactive' }}">
+                                            {{ $patient->activo ? 'Activo' : 'Inactivo' }}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <nav class="row-actions" aria-label="Acciones de {{ $patient->nombres }} {{ $patient->apellidos }}">
+                                            <a class="row-action" href="{{ route('patients.show', $patient->id_paciente) }}">Ver</a>
+                                            <a class="row-action" href="{{ route('patients.edit', $patient->id_paciente) }}">Modificar</a>
+                                            @if ($canConsultHistory)
+                                                <a class="row-action" href="{{ route('appointments.history', ['id_paciente' => $patient->id_paciente]) }}">Historial</a>
+                                            @endif
+                                        </nav>
+                                    </td>
+                                </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+                </div>
+            @endif
             <p class="list-meta">{{ $shown === 1 ? 'Mostrando 1 paciente' : 'Mostrando '.$shown.' pacientes' }}</p>
         </div>
     </section>

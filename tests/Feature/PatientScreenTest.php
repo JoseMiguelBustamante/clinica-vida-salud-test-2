@@ -49,6 +49,7 @@ class PatientScreenTest extends TestCase
         $this->withSession([Auth::guard('web')->getName() => 17]);
         $this->get('/pacientes')->assertOk()->assertSee('Pacientes')->assertSee('Ana')
             ->assertSee('Ana Rojas')->assertSee('Registrar paciente')->assertSee('Mostrando 1 paciente')
+            ->assertSee('stack-cards', false)->assertSee('patient-cards', false)
             ->assertDontSee('<script', false);
         $this->assertSame([], $this->app['db']->getConnections());
     }

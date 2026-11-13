@@ -12,6 +12,15 @@
         'desde' => $desde !== '' ? $desde : null,
         'hasta' => $hasta !== '' ? $hasta : null,
     ], static fn ($value): bool => $value !== null);
+    $rows = $entries->map(static function (object $entry) use ($months): array {
+        $at = \Illuminate\Support\Carbon::parse((string) $entry->fecha_hora, 'UTC');
+
+        return [
+            'entry' => $entry,
+            'at' => $at,
+            'dateLabel' => $at->day.' '.$months[(int) $at->month].' '.$at->year,
+        ];
+    });
 @endphp
 
 @section('content')
@@ -69,84 +78,88 @@
                 <button class="button button-inline" type="submit">Filtrar</button>
                 <a class="filter-clear" href="{{ route('activity-log.index', absolute: false) }}">Limpiar</a>
             </form>
-            <div class="table-wrap">
-                <table class="data-table activity-table">
-                    <thead>
-                        <tr>
-                            <th>Fecha y hora</th>
-                            <th>Usuario</th>
-                            <th>Dirección IP</th>
-                            <th>Acción</th>
-                            <th>Módulo</th>
-                            <th>Detalle</th>
-                            <th>Cambios</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        @forelse ($entries as $entry)
-                            @php
-                                $at = \Illuminate\Support\Carbon::parse((string) $entry->fecha_hora, 'UTC');
-                            @endphp
+
+            @if ($rows->isEmpty())
+                <p class="activity-card-empty">No hay movimientos que coincidan con la búsqueda.</p>
+            @else
+                <ul class="activity-cards">
+                    @foreach ($rows as $row)
+                        <li>
+                            <details class="activity-card">
+                                <summary>
+                                    <span class="activity-card-top">
+                                        <span class="when-line">
+                                            <span class="activity-caret" aria-hidden="true"></span>
+                                            <strong>{{ $row['dateLabel'] }}</strong>
+                                            <span>{{ $row['at']->format('H:i') }}</span>
+                                        </span>
+                                        <span class="status-pill {{ $row['entry']->statusClass }}">{{ $row['entry']->accion }}</span>
+                                    </span>
+                                    <span class="activity-card-actor">
+                                        <strong>{{ $row['entry']->actor_nombre ?: '—' }}</strong>
+                                        @if ($row['entry']->actor_rol)
+                                            <span>{{ $row['entry']->actor_rol }}</span>
+                                        @endif
+                                    </span>
+                                    <span class="activity-card-meta">
+                                        <span>{{ $row['entry']->modulo }}</span>
+                                        <span>{{ $row['entry']->detalle }}</span>
+                                        <span>IP {{ $row['entry']->direccion_ip ?: '—' }}</span>
+                                    </span>
+                                    <span class="activity-open">Ver cambios</span>
+                                </summary>
+                                @include('identity.activity-log._diff', ['entry' => $row['entry']])
+                            </details>
+                        </li>
+                    @endforeach
+                </ul>
+
+                <div class="table-wrap activity-table-wrap">
+                    <table class="data-table activity-table">
+                        <thead>
                             <tr>
-                                <td colspan="7" class="activity-row">
-                                    <details>
-                                        <summary>
-                                            <span class="when-line">
-                                                <span class="activity-caret" aria-hidden="true"></span>
-                                                <strong>{{ $at->day }} {{ $months[(int) $at->month] }} {{ $at->year }}</strong>
-                                                <span>{{ $at->format('H:i') }}</span>
-                                            </span>
-                                            <span class="staff-line">
-                                                <strong>{{ $entry->actor_nombre ?: '—' }}</strong>
-                                                @if ($entry->actor_rol)
-                                                    <span class="staff-specialty">{{ $entry->actor_rol }}</span>
-                                                @endif
-                                            </span>
-                                            <span>{{ $entry->direccion_ip ?: '—' }}</span>
-                                            <span><span class="status-pill {{ $entry->statusClass }}">{{ $entry->accion }}</span></span>
-                                            <span>{{ $entry->modulo }}</span>
-                                            <span>{{ $entry->detalle }}</span>
-                                            <span class="activity-open">Ver cambios</span>
-                                        </summary>
-                                        <div class="activity-diff">
-                                            @if ($entry->changes !== [])
-                                                <p class="activity-diff-title">{{ $entry->detalle }}</p>
-                                                <table class="data-table">
-                                                    <thead>
-                                                        <tr>
-                                                            <th>Campo</th>
-                                                            <th>Valor anterior</th>
-                                                            <th>Valor nuevo</th>
-                                                        </tr>
-                                                    </thead>
-                                                    <tbody>
-                                                        @foreach ($entry->changes as $change)
-                                                            <tr>
-                                                                <td>{{ $change['campo'] }}</td>
-                                                                <td>{{ $change['valor_anterior'] ?? '—' }}</td>
-                                                                <td>{{ $change['valor_nuevo'] ?? '—' }}</td>
-                                                            </tr>
-                                                        @endforeach
-                                                    </tbody>
-                                                </table>
-                                            @else
-                                                <p class="list-hint">Este movimiento no registra cambios de campos.</p>
-                                            @endif
-                                            @if ($entry->id_registro)
-                                                <p class="list-hint">ID de registro: {{ $entry->id_registro }}</p>
-                                            @endif
-                                        </div>
-                                    </details>
-                                </td>
+                                <th>Fecha y hora</th>
+                                <th>Usuario</th>
+                                <th>Dirección IP</th>
+                                <th>Acción</th>
+                                <th>Módulo</th>
+                                <th>Detalle</th>
+                                <th>Cambios</th>
                             </tr>
-                        @empty
-                            <tr>
-                                <td colspan="7">No hay movimientos que coincidan con la búsqueda.</td>
-                            </tr>
-                        @endforelse
-                    </tbody>
-                </table>
-            </div>
+                        </thead>
+                        <tbody>
+                            @foreach ($rows as $row)
+                                <tr>
+                                    <td colspan="7" class="activity-row">
+                                        <details>
+                                            <summary>
+                                                <span class="when-line">
+                                                    <span class="activity-caret" aria-hidden="true"></span>
+                                                    <strong>{{ $row['dateLabel'] }}</strong>
+                                                    <span>{{ $row['at']->format('H:i') }}</span>
+                                                </span>
+                                                <span class="staff-line">
+                                                    <strong>{{ $row['entry']->actor_nombre ?: '—' }}</strong>
+                                                    @if ($row['entry']->actor_rol)
+                                                        <span class="staff-specialty">{{ $row['entry']->actor_rol }}</span>
+                                                    @endif
+                                                </span>
+                                                <span>{{ $row['entry']->direccion_ip ?: '—' }}</span>
+                                                <span><span class="status-pill {{ $row['entry']->statusClass }}">{{ $row['entry']->accion }}</span></span>
+                                                <span>{{ $row['entry']->modulo }}</span>
+                                                <span>{{ $row['entry']->detalle }}</span>
+                                                <span class="activity-open">Ver cambios</span>
+                                            </summary>
+                                            @include('identity.activity-log._diff', ['entry' => $row['entry']])
+                                        </details>
+                                    </td>
+                                </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+                </div>
+            @endif
+
             <div class="list-footer">
                 <p class="list-meta">{{ $shown === 1 ? 'Mostrando 1 movimiento' : 'Mostrando '.$shown.' de '.$total.' movimientos' }}</p>
                 @if ($pages > 1)

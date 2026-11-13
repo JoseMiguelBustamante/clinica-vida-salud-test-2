@@ -1458,6 +1458,118 @@ a.panel-indicator:hover {
     font-weight: 750;
 }
 
+.appointment-cards,
+.agenda-cards {
+    display: none;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.appointment-card,
+.agenda-card {
+    display: grid;
+    gap: 0.65rem;
+    padding: 1rem 1.05rem;
+    border-bottom: 1px solid var(--clinic-line);
+}
+
+.appointment-card:last-child,
+.agenda-card:last-child {
+    border-bottom: 0;
+}
+
+.appointment-card-top,
+.agenda-card-top {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.45rem 0.75rem;
+}
+
+.appointment-card-patient,
+.agenda-card-patient {
+    margin: 0;
+    font-size: 1.05rem;
+    font-weight: 750;
+    color: var(--clinic-ink);
+}
+
+.appointment-card-meta,
+.agenda-card-meta {
+    display: grid;
+    gap: 0.2rem;
+    color: var(--clinic-muted);
+    font-size: 0.9rem;
+}
+
+.appointment-card-meta strong,
+.agenda-card-meta strong,
+.agenda-card-time {
+    color: var(--clinic-ink);
+    font-weight: 650;
+}
+
+.appointment-card .row-actions,
+.agenda-card .row-actions {
+    flex-wrap: wrap;
+    justify-content: flex-start;
+}
+
+.appointment-card-empty,
+.agenda-card-empty,
+.stack-card-empty {
+    margin: 0;
+    padding: 1rem 1.15rem;
+    color: var(--clinic-muted);
+}
+
+.stack-cards {
+    display: none;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.stack-card {
+    display: grid;
+    gap: 0.65rem;
+    padding: 1rem 1.05rem;
+    border-bottom: 1px solid var(--clinic-line);
+}
+
+.stack-card:last-child {
+    border-bottom: 0;
+}
+
+.stack-card-top {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.45rem 0.75rem;
+}
+
+.stack-card-title {
+    margin: 0;
+    font-size: 1.05rem;
+    font-weight: 750;
+    color: var(--clinic-ink);
+}
+
+.stack-card-meta {
+    display: grid;
+    gap: 0.2rem;
+    color: var(--clinic-muted);
+    font-size: 0.9rem;
+}
+
+.stack-card .row-actions {
+    flex-wrap: wrap;
+    justify-content: flex-start;
+}
+
 .appointment-table {
     min-width: 64rem;
     table-layout: auto;
@@ -1527,7 +1639,80 @@ a.panel-indicator:hover {
     text-decoration: underline;
 }
 
-.activity-table {
+.activity-cards {
+    display: none;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.activity-card-empty {
+    margin: 0;
+    padding: 1rem 1.15rem;
+    color: var(--clinic-muted);
+}
+
+.activity-card {
+    border-bottom: 1px solid var(--clinic-line);
+}
+
+.activity-card > summary {
+    display: grid;
+    gap: 0.55rem;
+    padding: 1rem 1.05rem;
+    list-style: none;
+    cursor: pointer;
+}
+
+.activity-card > summary::-webkit-details-marker {
+    display: none;
+}
+
+.activity-card-top,
+.activity-card-actor,
+.activity-card-meta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.35rem 0.7rem;
+}
+
+.activity-card .when-line,
+.activity-table .when-line {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+}
+
+.activity-card .when-line span,
+.activity-table .when-line span:not(.activity-caret) {
+    color: var(--clinic-muted);
+    font-variant-numeric: tabular-nums;
+}
+
+.activity-card-actor {
+    color: var(--clinic-ink);
+}
+
+.activity-card-actor span {
+    color: var(--clinic-muted);
+    font-size: 0.88rem;
+}
+
+.activity-card-meta {
+    color: var(--clinic-muted);
+    font-size: 0.9rem;
+}
+
+.activity-card .activity-open {
+    justify-self: start;
+}
+
+.activity-card .activity-diff {
+    margin: 0 1.05rem 1rem;
+}
+
+.activity-table-wrap .activity-table {
     min-width: 72rem;
 }
 
@@ -1550,17 +1735,20 @@ a.panel-indicator:hover {
     display: none;
 }
 
-.activity-table .activity-caret {
+.activity-table .activity-caret,
+.activity-card .activity-caret {
     display: inline-block;
     width: 0.9rem;
     color: var(--clinic-muted);
 }
 
-.activity-table .activity-caret::before {
+.activity-table .activity-caret::before,
+.activity-card .activity-caret::before {
     content: "▸";
 }
 
-.activity-table details[open] .activity-caret::before {
+.activity-table details[open] .activity-caret::before,
+.activity-card[open] .activity-caret::before {
     content: "▾";
 }
 
@@ -1587,6 +1775,12 @@ a.panel-indicator:hover {
 .activity-diff-title {
     margin: 0 0 0.65rem;
     font-weight: 700;
+}
+
+.activity-diff-wrap {
+    border: 0;
+    border-radius: 0.6rem;
+    background: #ffffff;
 }
 
 .activity-diff .data-table {
@@ -2246,7 +2440,12 @@ a.code-link:hover {
 .week-grid {
     display: grid;
     grid-template-columns: 4.25rem repeat(var(--week-days, 5), minmax(7.25rem, 1fr));
-    min-width: 42rem;
+    min-width: calc(4.25rem + (var(--week-days, 5) * 7.25rem));
+}
+
+.week-day-name-short,
+.week-day-date-short {
+    display: none;
 }
 
 .week-hours {
@@ -2878,8 +3077,134 @@ body.is-app .booking-cancel:hover {
         min-width: 36rem;
     }
 
+    .appointment-table-wrap,
+    .agenda-table-wrap,
+    .stack-table-wrap {
+        display: none;
+    }
+
+    .appointment-cards,
+    .agenda-cards,
+    .stack-cards {
+        display: grid;
+    }
+
+    .activity-table-wrap {
+        display: none;
+    }
+
+    .activity-cards {
+        display: grid;
+    }
+
+    .activity-diff .data-table {
+        min-width: 0;
+    }
+
     .row-actions {
         flex-wrap: nowrap;
+    }
+
+    .appointment-card .row-actions,
+    .agenda-card .row-actions,
+    .stack-card .row-actions {
+        flex-wrap: wrap;
+    }
+
+    .week-board {
+        padding: 0.85rem 0.8rem 1rem;
+    }
+
+    .week-toolbar {
+        align-items: stretch;
+    }
+
+    .week-range {
+        flex: 1 1 100%;
+        margin: 0.15rem 0 0;
+        font-size: 0.95rem;
+    }
+
+    .week-toolbar-end {
+        width: 100%;
+        justify-content: flex-start;
+    }
+
+    .week-switch a {
+        min-width: 0;
+        padding: 0.2rem 0.55rem;
+        font-size: 0.82rem;
+    }
+
+    .week-grid {
+        grid-template-columns: 2.85rem repeat(var(--week-days, 5), minmax(5.5rem, 1fr));
+        min-width: calc(2.85rem + (var(--week-days, 5) * 5.5rem));
+    }
+
+    .week-hours {
+        grid-template-rows: 2.85rem repeat(var(--week-hour-count, 10), var(--week-hour, 4.75rem));
+    }
+
+    .week-day-head {
+        height: 2.85rem;
+        padding: 0.3rem 0.35rem 0.2rem;
+        gap: 0;
+    }
+
+    .week-day-name-full,
+    .week-day-date-full {
+        display: none;
+    }
+
+    .week-day-name-short,
+    .week-day-date-short {
+        display: block;
+    }
+
+    .week-day-name-short {
+        color: var(--clinic-muted);
+        font-size: 0.72rem;
+        font-weight: 700;
+    }
+
+    .week-day-date-short {
+        font-size: 0.82rem;
+    }
+
+    .week-hour {
+        font-size: 0.7rem;
+    }
+
+    .week-event,
+    .week-slot {
+        left: 0.2rem;
+        right: 0.2rem;
+        padding: 0.18rem 0.3rem;
+        font-size: 0.68rem;
+    }
+
+    .booking-layout.is-open {
+        display: flex;
+        flex-direction: column;
+    }
+
+    .booking-layout.is-open .booking-panel {
+        order: -1;
+        position: sticky;
+        top: 0.35rem;
+        z-index: 8;
+        box-shadow: 0 8px 20px rgba(15, 40, 36, 0.08);
+    }
+
+    .booking-layout.is-open .week-grid {
+        min-width: calc(2.85rem + (var(--week-days, 5) * 5.5rem));
+        grid-template-columns: 2.85rem repeat(var(--week-days, 5), minmax(5.5rem, 1fr));
+    }
+
+    .calendar-weekday,
+    .calendar-day {
+        min-height: 2rem;
+        font-size: 0.8rem;
     }
 }
 

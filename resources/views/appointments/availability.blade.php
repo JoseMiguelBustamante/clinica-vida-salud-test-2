@@ -121,7 +121,7 @@
             <button class="button button-inline" type="submit">Consultar</button>
         </form>
 
-        <div class="booking-layout @if ($bookingOpen) is-open @endif">
+        <div @class(['booking-layout', 'is-open' => $bookingOpen])>
             <div class="week-board @if ($escala === 'amplia') is-amplia @endif">
                 <div class="week-toolbar">
                     <div class="week-nav">
@@ -194,8 +194,10 @@
                                 @endphp
                                 <section class="week-day @if ($isToday) is-today @endif @if ($isPast) is-past @endif" aria-label="{{ $weekdayNames[$day->isoWeekday()] ?? '' }} {{ $day->day }}">
                                     <header class="week-day-head">
-                                        <span>{{ $weekdayNames[$day->isoWeekday()] ?? $day->isoFormat('dddd') }}</span>
-                                        <strong>{{ $day->day }} de {{ $monthNames[(int) $day->month] }}</strong>
+                                        <span class="week-day-name-full">{{ $weekdayNames[$day->isoWeekday()] ?? $day->isoFormat('dddd') }}</span>
+                                        <span class="week-day-name-short">{{ $shortWeekdays[$day->isoWeekday() - 1] ?? '' }}</span>
+                                        <strong class="week-day-date-full">{{ $day->day }} de {{ $monthNames[(int) $day->month] }}</strong>
+                                        <strong class="week-day-date-short">{{ $day->format('d/m') }}</strong>
                                     </header>
                                     <div class="week-track">
                                         @foreach ($hours as $hour)

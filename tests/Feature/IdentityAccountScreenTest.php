@@ -44,7 +44,8 @@ class IdentityAccountScreenTest extends TestCase
 
         $this->withSession([Auth::guard('web')->getName() => 17]);
         $this->get('/usuarios')->assertOk()->assertSee('Usuarios y roles')->assertSee('admin')
-            ->assertSee('Registrar usuario');
+            ->assertSee('Registrar usuario')
+            ->assertSee('stack-cards', false)->assertSee('account-cards', false);
         $this->assertSame([], $this->app['db']->getConnections());
     }
 

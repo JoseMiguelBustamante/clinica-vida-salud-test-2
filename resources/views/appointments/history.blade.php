@@ -40,7 +40,26 @@
 
         @if ($matches->isNotEmpty())
             <div class="list-card">
-                <div class="table-wrap">
+                <ul class="stack-cards history-match-cards">
+                    @foreach ($matches as $match)
+                        <li class="stack-card">
+                            <div class="stack-card-top">
+                                <strong class="stack-card-title person-name">{{ $match->apellidos }}, {{ $match->nombres }}</strong>
+                                <span class="status-pill {{ $match->activo ? 'is-active' : 'is-inactive' }}">
+                                    {{ $match->activo ? 'Activo' : 'Inactivo' }}
+                                </span>
+                            </div>
+                            <div class="stack-card-meta">
+                                <span>CI {{ $match->ci ?: '—' }}</span>
+                            </div>
+                            <nav class="row-actions" aria-label="Acciones de {{ $match->nombres }} {{ $match->apellidos }}">
+                                <a class="row-action" href="{{ route('appointments.history', ['id_paciente' => $match->id_paciente, 'estado' => $estado]) }}">Ver historial</a>
+                            </nav>
+                        </li>
+                    @endforeach
+                </ul>
+
+                <div class="table-wrap stack-table-wrap">
                     <table class="data-table">
                         <thead>
                             <tr>
@@ -98,41 +117,68 @@
             </article>
 
             <div class="list-card">
-                <div class="table-wrap">
-                    <table class="data-table">
-                        <thead>
-                            <tr>
-                                <th>Fecha</th>
-                                <th>Horario</th>
-                                <th>Código</th>
-                                <th>Médico</th>
-                                <th>Especialidad</th>
-                                <th>Estado</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @forelse ($appointments as $appointment)
+                @if ($appointments->isEmpty())
+                    <p class="stack-card-empty">No hay citas que coincidan con los criterios.</p>
+                @else
+                    <ul class="stack-cards history-appointment-cards">
+                        @foreach ($appointments as $appointment)
+                            @php
+                                $start = \Illuminate\Support\Carbon::parse((string) $appointment->inicio)->timezone('UTC');
+                                $end = \Illuminate\Support\Carbon::parse((string) $appointment->fin)->timezone('UTC');
+                                $statusClass = in_array($appointment->estado, ['Atendida', 'Confirmada'], true)
+                                    ? 'is-active'
+                                    : (in_array($appointment->estado, ['Cancelada', 'Inasistencia'], true) ? 'is-inactive' : '');
+                            @endphp
+                            <li class="stack-card">
+                                <div class="stack-card-top">
+                                    <strong class="stack-card-title">{{ $appointment->codigo }}</strong>
+                                    <span class="status-pill {{ $statusClass }}">{{ $appointment->estado }}</span>
+                                </div>
+                                <div class="stack-card-meta">
+                                    <span>{{ $start->format('Y-m-d') }} · {{ $start->format('H:i') }} – {{ $end->format('H:i') }} UTC</span>
+                                    <span>{{ $appointment->medico_apellidos }}, {{ $appointment->medico_nombres }}</span>
+                                    <span>{{ $appointment->especialidad_nombre }}</span>
+                                </div>
+                            </li>
+                        @endforeach
+                    </ul>
+
+                    <div class="table-wrap stack-table-wrap">
+                        <table class="data-table">
+                            <thead>
                                 <tr>
-                                    <td>{{ \Illuminate\Support\Carbon::parse((string) $appointment->inicio)->timezone('UTC')->format('Y-m-d') }}</td>
-                                    <td>{{ \Illuminate\Support\Carbon::parse((string) $appointment->inicio)->timezone('UTC')->format('H:i') }}
-                                        – {{ \Illuminate\Support\Carbon::parse((string) $appointment->fin)->timezone('UTC')->format('H:i') }} UTC</td>
-                                    <td>{{ $appointment->codigo }}</td>
-                                    <td>{{ $appointment->medico_apellidos }}, {{ $appointment->medico_nombres }}</td>
-                                    <td>{{ $appointment->especialidad_nombre }}</td>
-                                    <td>
-                                        <span class="status-pill {{ in_array($appointment->estado, ['Atendida', 'Confirmada'], true) ? 'is-active' : (in_array($appointment->estado, ['Cancelada', 'Inasistencia'], true) ? 'is-inactive' : '') }}">
-                                            {{ $appointment->estado }}
-                                        </span>
-                                    </td>
+                                    <th>Fecha</th>
+                                    <th>Horario</th>
+                                    <th>Código</th>
+                                    <th>Médico</th>
+                                    <th>Especialidad</th>
+                                    <th>Estado</th>
                                 </tr>
-                            @empty
-                                <tr>
-                                    <td colspan="6">No hay citas que coincidan con los criterios.</td>
-                                </tr>
-                            @endforelse
-                        </tbody>
-                    </table>
-                </div>
+                            </thead>
+                            <tbody>
+                                @foreach ($appointments as $appointment)
+                                    @php
+                                        $start = \Illuminate\Support\Carbon::parse((string) $appointment->inicio)->timezone('UTC');
+                                        $end = \Illuminate\Support\Carbon::parse((string) $appointment->fin)->timezone('UTC');
+                                        $statusClass = in_array($appointment->estado, ['Atendida', 'Confirmada'], true)
+                                            ? 'is-active'
+                                            : (in_array($appointment->estado, ['Cancelada', 'Inasistencia'], true) ? 'is-inactive' : '');
+                                    @endphp
+                                    <tr>
+                                        <td>{{ $start->format('Y-m-d') }}</td>
+                                        <td>{{ $start->format('H:i') }} – {{ $end->format('H:i') }} UTC</td>
+                                        <td>{{ $appointment->codigo }}</td>
+                                        <td>{{ $appointment->medico_apellidos }}, {{ $appointment->medico_nombres }}</td>
+                                        <td>{{ $appointment->especialidad_nombre }}</td>
+                                        <td>
+                                            <span class="status-pill {{ $statusClass }}">{{ $appointment->estado }}</span>
+                                        </td>
+                                    </tr>
+                                @endforeach
+                            </tbody>
+                        </table>
+                    </div>
+                @endif
                 <p class="list-meta">{{ $appointments->count() === 1 ? 'Mostrando 1 cita' : 'Mostrando '.$appointments->count().' citas' }}</p>
             </div>
         @elseif ($q === '')

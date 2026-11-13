@@ -33,45 +33,66 @@
                 <button class="button" type="submit">Buscar</button>
             </form>
 
-            <div class="table-wrap">
-                <table class="data-table">
-                    <thead>
-                        <tr>
-                            <th>Registro</th>
-                            <th>Médico</th>
-                            <th>Especialidades</th>
-                            <th>Estado</th>
-                            <th>Acciones</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        @forelse ($physicians as $physician)
+            @if ($physicians->isEmpty())
+                <p class="stack-card-empty">No hay médicos que coincidan con la búsqueda.</p>
+            @else
+                <ul class="stack-cards physician-cards">
+                    @foreach ($physicians as $physician)
+                        <li class="stack-card">
+                            <div class="stack-card-top">
+                                <strong class="stack-card-title person-name">{{ $physician->nombres }} {{ $physician->apellidos }}</strong>
+                                <span class="status-pill {{ $physician->activo ? 'is-active' : 'is-inactive' }}">
+                                    {{ $physician->activo ? 'Activo' : 'Inactivo' }}
+                                </span>
+                            </div>
+                            <div class="stack-card-meta">
+                                <span>{{ $physician->registro_profesional }}</span>
+                                <span>{{ $physician->especialidades->pluck('nombre')->join(', ') ?: 'Sin especialidades' }}</span>
+                            </div>
+                            <nav class="row-actions" aria-label="Acciones de {{ $physician->nombres }} {{ $physician->apellidos }}">
+                                <a class="row-action" href="{{ route('physicians.show', $physician->id_medico) }}">Ver</a>
+                                <a class="row-action" href="{{ route('physicians.edit', $physician->id_medico) }}">Modificar</a>
+                            </nav>
+                        </li>
+                    @endforeach
+                </ul>
+
+                <div class="table-wrap stack-table-wrap">
+                    <table class="data-table">
+                        <thead>
                             <tr>
-                                <td>{{ $physician->registro_profesional }}</td>
-                                <td>
-                                    <strong class="person-name">{{ $physician->nombres }} {{ $physician->apellidos }}</strong>
-                                </td>
-                                <td>{{ $physician->especialidades->pluck('nombre')->join(', ') ?: '—' }}</td>
-                                <td>
-                                    <span class="status-pill {{ $physician->activo ? 'is-active' : 'is-inactive' }}">
-                                        {{ $physician->activo ? 'Activo' : 'Inactivo' }}
-                                    </span>
-                                </td>
-                                <td>
-                                    <nav class="row-actions" aria-label="Acciones de {{ $physician->nombres }} {{ $physician->apellidos }}">
-                                        <a class="row-action" href="{{ route('physicians.show', $physician->id_medico) }}">Ver</a>
-                                        <a class="row-action" href="{{ route('physicians.edit', $physician->id_medico) }}">Modificar</a>
-                                    </nav>
-                                </td>
+                                <th>Registro</th>
+                                <th>Médico</th>
+                                <th>Especialidades</th>
+                                <th>Estado</th>
+                                <th>Acciones</th>
                             </tr>
-                        @empty
-                            <tr>
-                                <td colspan="5">No hay médicos que coincidan con la búsqueda.</td>
-                            </tr>
-                        @endforelse
-                    </tbody>
-                </table>
-            </div>
+                        </thead>
+                        <tbody>
+                            @foreach ($physicians as $physician)
+                                <tr>
+                                    <td>{{ $physician->registro_profesional }}</td>
+                                    <td>
+                                        <strong class="person-name">{{ $physician->nombres }} {{ $physician->apellidos }}</strong>
+                                    </td>
+                                    <td>{{ $physician->especialidades->pluck('nombre')->join(', ') ?: '—' }}</td>
+                                    <td>
+                                        <span class="status-pill {{ $physician->activo ? 'is-active' : 'is-inactive' }}">
+                                            {{ $physician->activo ? 'Activo' : 'Inactivo' }}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <nav class="row-actions" aria-label="Acciones de {{ $physician->nombres }} {{ $physician->apellidos }}">
+                                            <a class="row-action" href="{{ route('physicians.show', $physician->id_medico) }}">Ver</a>
+                                            <a class="row-action" href="{{ route('physicians.edit', $physician->id_medico) }}">Modificar</a>
+                                        </nav>
+                                    </td>
+                                </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+                </div>
+            @endif
             <p class="list-meta">{{ $shown === 1 ? 'Mostrando 1 médico' : 'Mostrando '.$shown.' médicos' }}</p>
         </div>
     </section>

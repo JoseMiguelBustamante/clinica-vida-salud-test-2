@@ -201,7 +201,9 @@ class AppointmentScreenTest extends TestCase
         $this->withSession([Auth::guard('web')->getName() => 17]);
         $this->get('/citas')->assertOk()->assertSee('Citas registradas')
             ->assertSee('CIT-20261101080000ab')->assertSee('Reprogramar')->assertSee('Pediatría')
-            ->assertSee('1 nov 2026')->assertSee('Todos');
+            ->assertSee('1 nov 2026')->assertSee('Todos')
+            ->assertSee('appointment-cards', false)
+            ->assertSee('appointment-table-wrap', false);
         $this->assertSame([], $this->app['db']->getConnections());
     }
 
@@ -505,6 +507,55 @@ class AppointmentScreenTest extends TestCase
         $this->assertSame([], $this->app['db']->getConnections());
     }
 
+    public function test_the_physician_agenda_lists_appointments_with_mobile_cards_without_sql(): void
+    {
+        $user = (new User)->forceFill(['id_usuario' => 17, 'activo' => true, 'id_rol' => 3]);
+        $identities = Mockery::mock(IdentityRepository::class);
+        $identities->shouldReceive('active')->once()->with(17)->andReturn($user);
+        $identities->shouldReceive('permissionCodes')->once()->with($user)->andReturn([
+            PermissionCatalog::CONSULT_AGENDA,
+            PermissionCatalog::MARK_ATTENDED,
+        ]);
+        $this->app->instance(IdentityRepository::class, $identities);
+
+        $appointments = Mockery::mock(AppointmentRepository::class);
+        $appointments->shouldReceive('getPhysicianByUserId')->once()->with(17)
+            ->andReturn((object) ['id_medico' => 4, 'activo' => true, 'id_usuario' => 17]);
+        $appointments->shouldReceive('getAppointmentsForPhysicianOnDate')->once()
+            ->withArgs(function (int $physicianId, string $start, string $end, ?string $status): bool {
+                return $physicianId === 4
+                    && str_starts_with($start, '2026-11-12')
+                    && str_starts_with($end, '2026-11-13')
+                    && $status === null;
+            })
+            ->andReturn(collect([
+                (object) [
+                    'id_cita' => 21,
+                    'codigo' => 'CIT-AGENDA01',
+                    'inicio' => '2026-11-12T09:00:00+00:00',
+                    'fin' => '2026-11-12T09:30:00+00:00',
+                    'estado' => 'Programada',
+                    'paciente_nombres' => 'Ana',
+                    'paciente_apellidos' => 'Rojas',
+                    'especialidad_nombre' => 'Pediatría',
+                    'motivo_consulta' => 'Control',
+                ],
+            ]));
+        $appointments->shouldReceive('getRegisteredPhysicians')->never();
+        $this->app->instance(AppointmentRepository::class, $appointments);
+
+        $this->withSession([Auth::guard('web')->getName() => 17]);
+        $this->get('/agenda?fecha=2026-11-12')->assertOk()
+            ->assertSee('Agenda médica')
+            ->assertSee('CIT-AGENDA01')
+            ->assertSee('Rojas')
+            ->assertSee('09:00')
+            ->assertSee('Atender')
+            ->assertSee('agenda-cards', false)
+            ->assertSee('agenda-table-wrap', false);
+        $this->assertSame([], $this->app['db']->getConnections());
+    }
+
     public function test_guests_are_sent_to_login_for_patient_history(): void
     {
         $this->get('/historial')->assertRedirect(route('login'));
@@ -597,6 +648,7 @@ class AppointmentScreenTest extends TestCase
         $this->get('/historial?id_paciente=8')->assertOk()->assertSee('Ana')
             ->assertSee('CIT-1')->assertSee('Pediatría')->assertSee('Atendida')
             ->assertSee('No muestra diagnósticos ni notas médicas')
+            ->assertSee('history-appointment-cards', false)->assertSee('stack-cards', false)
             ->assertDontSee('Nota clínica secreta');
         $this->assertSame([], $this->app['db']->getConnections());
     }

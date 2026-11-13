@@ -59,7 +59,8 @@ class ScheduleScreenTest extends TestCase
 
         $this->withSession([Auth::guard('web')->getName() => 17]);
         $this->get('/horarios')->assertOk()->assertSee('Horarios de atención')->assertSee('Luis')
-            ->assertSee('08:00')->assertSee('Registrar horario');
+            ->assertSee('08:00')->assertSee('Registrar horario')
+            ->assertSee('stack-cards', false)->assertSee('schedule-cards', false);
         $this->assertSame([], $this->app['db']->getConnections());
     }
 

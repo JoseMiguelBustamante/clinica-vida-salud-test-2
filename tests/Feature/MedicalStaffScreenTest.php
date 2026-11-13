@@ -51,7 +51,8 @@ class MedicalStaffScreenTest extends TestCase
 
         $this->withSession([Auth::guard('web')->getName() => 17]);
         $this->get('/especialidades')->assertOk()->assertSee('Especialidades')->assertSee('Pediatría')
-            ->assertSee('Registrar especialidad');
+            ->assertSee('Registrar especialidad')
+            ->assertSee('stack-cards', false)->assertSee('specialty-cards', false);
         $this->assertSame([], $this->app['db']->getConnections());
     }
 
@@ -75,6 +76,7 @@ class MedicalStaffScreenTest extends TestCase
         $this->withSession([Auth::guard('web')->getName() => 17]);
         $this->get('/medicos')->assertOk()->assertSee('Médicos')->assertSee('Luis Soto')->assertSee('Pediatría')
             ->assertSee('Registrar médico')->assertSee('Mostrando 1 médico')
+            ->assertSee('stack-cards', false)->assertSee('physician-cards', false)
             ->assertDontSee('<script', false);
         $this->assertSame([], $this->app['db']->getConnections());
     }

@@ -71,7 +71,9 @@ class ActivityLogScreenTest extends TestCase
                 ->assertSee('Solo consulta')->assertSee('Teléfono actualizado')
                 ->assertSee('77778888')->assertSee('77779999')->assertSee('Ver cambios')
                 ->assertSee('value="2026-10-26"', false)->assertSee('value="2026-11-01"', false)
-                ->assertSee('Filtrar')->assertSee('Limpiar')->assertDontSee('<script', false);
+                ->assertSee('Filtrar')->assertSee('Limpiar')
+                ->assertSee('activity-cards', false)->assertSee('activity-table-wrap', false)
+                ->assertDontSee('<script', false);
             $this->assertSame([], $this->app['db']->getConnections());
         } finally {
             Carbon::setTestNow();

@@ -32,43 +32,65 @@
                 </div>
                 <button class="button" type="submit">Buscar</button>
             </form>
-            <div class="table-wrap">
-                <table class="data-table">
-                    <thead>
-                        <tr>
-                            <th>Usuario</th>
-                            <th>Correo</th>
-                            <th>Rol</th>
-                            <th>Estado</th>
-                            <th>Acciones</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        @forelse ($accounts as $account)
+
+            @if ($accounts->isEmpty())
+                <p class="stack-card-empty">No hay cuentas que coincidan con la búsqueda.</p>
+            @else
+                <ul class="stack-cards account-cards">
+                    @foreach ($accounts as $account)
+                        <li class="stack-card">
+                            <div class="stack-card-top">
+                                <strong class="stack-card-title person-name">{{ $account->nombre_usuario }}</strong>
+                                <span class="status-pill {{ $account->activo ? 'is-active' : 'is-inactive' }}">
+                                    {{ $account->activo ? 'Activo' : 'Inactivo' }}
+                                </span>
+                            </div>
+                            <div class="stack-card-meta">
+                                <span>{{ $account->correo_acceso ?: 'Sin correo' }}</span>
+                                <span>{{ $account->rol_nombre }}</span>
+                            </div>
+                            <nav class="row-actions" aria-label="Acciones de {{ $account->nombre_usuario }}">
+                                <a class="row-action" href="{{ route('accounts.show', $account->id_usuario) }}">Ver</a>
+                                <a class="row-action" href="{{ route('accounts.edit', $account->id_usuario) }}">Modificar</a>
+                            </nav>
+                        </li>
+                    @endforeach
+                </ul>
+
+                <div class="table-wrap stack-table-wrap">
+                    <table class="data-table">
+                        <thead>
                             <tr>
-                                <td><strong class="person-name">{{ $account->nombre_usuario }}</strong></td>
-                                <td>{{ $account->correo_acceso ?: '—' }}</td>
-                                <td>{{ $account->rol_nombre }}</td>
-                                <td>
-                                    <span class="status-pill {{ $account->activo ? 'is-active' : 'is-inactive' }}">
-                                        {{ $account->activo ? 'Activo' : 'Inactivo' }}
-                                    </span>
-                                </td>
-                                <td>
-                                    <nav class="row-actions" aria-label="Acciones de {{ $account->nombre_usuario }}">
-                                        <a class="row-action" href="{{ route('accounts.show', $account->id_usuario) }}">Ver</a>
-                                        <a class="row-action" href="{{ route('accounts.edit', $account->id_usuario) }}">Modificar</a>
-                                    </nav>
-                                </td>
+                                <th>Usuario</th>
+                                <th>Correo</th>
+                                <th>Rol</th>
+                                <th>Estado</th>
+                                <th>Acciones</th>
                             </tr>
-                        @empty
-                            <tr>
-                                <td colspan="5">No hay cuentas que coincidan con la búsqueda.</td>
-                            </tr>
-                        @endforelse
-                    </tbody>
-                </table>
-            </div>
+                        </thead>
+                        <tbody>
+                            @foreach ($accounts as $account)
+                                <tr>
+                                    <td><strong class="person-name">{{ $account->nombre_usuario }}</strong></td>
+                                    <td>{{ $account->correo_acceso ?: '—' }}</td>
+                                    <td>{{ $account->rol_nombre }}</td>
+                                    <td>
+                                        <span class="status-pill {{ $account->activo ? 'is-active' : 'is-inactive' }}">
+                                            {{ $account->activo ? 'Activo' : 'Inactivo' }}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <nav class="row-actions" aria-label="Acciones de {{ $account->nombre_usuario }}">
+                                            <a class="row-action" href="{{ route('accounts.show', $account->id_usuario) }}">Ver</a>
+                                            <a class="row-action" href="{{ route('accounts.edit', $account->id_usuario) }}">Modificar</a>
+                                        </nav>
+                                    </td>
+                                </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+                </div>
+            @endif
             <p class="list-meta">{{ $shown === 1 ? 'Mostrando 1 cuenta' : 'Mostrando '.$shown.' cuentas' }}</p>
         </div>
     </section>

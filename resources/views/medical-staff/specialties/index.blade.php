@@ -32,41 +32,62 @@
                 </div>
                 <button class="button" type="submit">Buscar</button>
             </form>
-            <div class="table-wrap">
-                <table class="data-table">
-                    <thead>
-                        <tr>
-                            <th>Nombre</th>
-                            <th>Descripción</th>
-                            <th>Estado</th>
-                            <th>Acciones</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        @forelse ($specialties as $specialty)
+
+            @if ($specialties->isEmpty())
+                <p class="stack-card-empty">No hay especialidades que coincidan con la búsqueda.</p>
+            @else
+                <ul class="stack-cards specialty-cards">
+                    @foreach ($specialties as $specialty)
+                        <li class="stack-card">
+                            <div class="stack-card-top">
+                                <strong class="stack-card-title person-name">{{ $specialty->nombre }}</strong>
+                                <span class="status-pill {{ $specialty->activo ? 'is-active' : 'is-inactive' }}">
+                                    {{ $specialty->activo ? 'Activa' : 'Inactiva' }}
+                                </span>
+                            </div>
+                            <div class="stack-card-meta">
+                                <span>{{ $specialty->descripcion ?: 'Sin descripción' }}</span>
+                            </div>
+                            <nav class="row-actions" aria-label="Acciones de {{ $specialty->nombre }}">
+                                <a class="row-action" href="{{ route('specialties.show', $specialty->id_especialidad) }}">Ver</a>
+                                <a class="row-action" href="{{ route('specialties.edit', $specialty->id_especialidad) }}">Modificar</a>
+                            </nav>
+                        </li>
+                    @endforeach
+                </ul>
+
+                <div class="table-wrap stack-table-wrap">
+                    <table class="data-table">
+                        <thead>
                             <tr>
-                                <td><strong class="person-name">{{ $specialty->nombre }}</strong></td>
-                                <td>{{ $specialty->descripcion ?: '—' }}</td>
-                                <td>
-                                    <span class="status-pill {{ $specialty->activo ? 'is-active' : 'is-inactive' }}">
-                                        {{ $specialty->activo ? 'Activa' : 'Inactiva' }}
-                                    </span>
-                                </td>
-                                <td>
-                                    <nav class="row-actions" aria-label="Acciones de {{ $specialty->nombre }}">
-                                        <a class="row-action" href="{{ route('specialties.show', $specialty->id_especialidad) }}">Ver</a>
-                                        <a class="row-action" href="{{ route('specialties.edit', $specialty->id_especialidad) }}">Modificar</a>
-                                    </nav>
-                                </td>
+                                <th>Nombre</th>
+                                <th>Descripción</th>
+                                <th>Estado</th>
+                                <th>Acciones</th>
                             </tr>
-                        @empty
-                            <tr>
-                                <td colspan="4">No hay especialidades que coincidan con la búsqueda.</td>
-                            </tr>
-                        @endforelse
-                    </tbody>
-                </table>
-            </div>
+                        </thead>
+                        <tbody>
+                            @foreach ($specialties as $specialty)
+                                <tr>
+                                    <td><strong class="person-name">{{ $specialty->nombre }}</strong></td>
+                                    <td>{{ $specialty->descripcion ?: '—' }}</td>
+                                    <td>
+                                        <span class="status-pill {{ $specialty->activo ? 'is-active' : 'is-inactive' }}">
+                                            {{ $specialty->activo ? 'Activa' : 'Inactiva' }}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <nav class="row-actions" aria-label="Acciones de {{ $specialty->nombre }}">
+                                            <a class="row-action" href="{{ route('specialties.show', $specialty->id_especialidad) }}">Ver</a>
+                                            <a class="row-action" href="{{ route('specialties.edit', $specialty->id_especialidad) }}">Modificar</a>
+                                        </nav>
+                                    </td>
+                                </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+                </div>
+            @endif
             <p class="list-meta">{{ $shown === 1 ? 'Mostrando 1 especialidad' : 'Mostrando '.$shown.' especialidades' }}</p>
         </div>
     </section>

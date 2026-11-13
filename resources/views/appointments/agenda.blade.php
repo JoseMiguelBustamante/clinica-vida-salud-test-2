@@ -2,6 +2,25 @@
 
 @section('title', 'Agenda — Clínica Vida Salud')
 
+@php
+    $rows = $appointments === null
+        ? collect()
+        : $appointments->map(static function (object $appointment) use ($canMarkAttended): array {
+            $start = \Illuminate\Support\Carbon::parse((string) $appointment->inicio)->timezone('UTC');
+            $end = \Illuminate\Support\Carbon::parse((string) $appointment->fin)->timezone('UTC');
+            $statusClass = in_array($appointment->estado, ['Atendida', 'Confirmada'], true)
+                ? 'is-active'
+                : (in_array($appointment->estado, ['Cancelada', 'Inasistencia'], true) ? 'is-inactive' : '');
+
+            return [
+                'appointment' => $appointment,
+                'timeLabel' => $start->format('H:i').' – '.$end->format('H:i').' UTC',
+                'statusClass' => $statusClass,
+                'canAttend' => $canMarkAttended && in_array($appointment->estado, ['Programada', 'Confirmada'], true),
+            ];
+        });
+@endphp
+
 @section('content')
     <section class="app-page" aria-labelledby="page-title">
         <p class="app-breadcrumb">Atención / Agenda</p>
@@ -52,55 +71,77 @@
             <p class="list-meta">Seleccione la fecha{{ $canSelectPhysician ? ' y el médico' : '' }} para ver la agenda.</p>
         @else
             <div class="list-card">
-                <div class="table-wrap">
-                    <table class="data-table">
-                        <thead>
-                            <tr>
-                                <th>Horario</th>
-                                <th>Código</th>
-                                <th>Paciente</th>
-                                <th>Especialidad</th>
-                                <th>Estado</th>
-                                @if ($canViewReason)
-                                    <th>Motivo</th>
-                                @endif
-                                <th>Acciones</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @forelse ($appointments as $appointment)
-                                <tr>
-                                    <td>{{ \Illuminate\Support\Carbon::parse((string) $appointment->inicio)->timezone('UTC')->format('H:i') }}
-                                        – {{ \Illuminate\Support\Carbon::parse((string) $appointment->fin)->timezone('UTC')->format('H:i') }} UTC</td>
-                                    <td>{{ $appointment->codigo }}</td>
-                                    <td>{{ $appointment->paciente_apellidos }}, {{ $appointment->paciente_nombres }}</td>
-                                    <td>{{ $appointment->especialidad_nombre }}</td>
-                                    <td>
-                                        <span class="status-pill {{ in_array($appointment->estado, ['Atendida', 'Confirmada'], true) ? 'is-active' : (in_array($appointment->estado, ['Cancelada', 'Inasistencia'], true) ? 'is-inactive' : '') }}">
-                                            {{ $appointment->estado }}
-                                        </span>
-                                    </td>
+                @if ($rows->isEmpty())
+                    <p class="agenda-card-empty">No hay citas registradas para esa consulta.</p>
+                @else
+                    <ul class="agenda-cards">
+                        @foreach ($rows as $row)
+                            <li class="agenda-card">
+                                <div class="agenda-card-top">
+                                    <strong class="agenda-card-time">{{ $row['timeLabel'] }}</strong>
+                                    <span class="status-pill {{ $row['statusClass'] }}">{{ $row['appointment']->estado }}</span>
+                                </div>
+                                <p class="agenda-card-patient">{{ $row['appointment']->paciente_apellidos }}, {{ $row['appointment']->paciente_nombres }}</p>
+                                <div class="agenda-card-meta">
+                                    <span>{{ $row['appointment']->codigo }}</span>
+                                    <span>{{ $row['appointment']->especialidad_nombre }}</span>
                                     @if ($canViewReason)
-                                        <td>{{ $appointment->motivo_consulta ?: '—' }}</td>
+                                        <span>{{ $row['appointment']->motivo_consulta ?: 'Sin motivo' }}</span>
                                     @endif
-                                    <td>
-                                        <nav class="row-actions">
-                                            <a class="row-action" href="{{ route('appointments.show', $appointment->id_cita) }}">Ver</a>
-                                            @if ($canMarkAttended && in_array($appointment->estado, ['Programada', 'Confirmada'], true))
-                                                <a class="row-action" href="{{ route('appointments.attend', $appointment->id_cita) }}">Atender</a>
-                                            @endif
-                                        </nav>
-                                    </td>
-                                </tr>
-                            @empty
+                                </div>
+                                <nav class="row-actions" aria-label="Acciones de {{ $row['appointment']->codigo }}">
+                                    <a class="row-action" href="{{ route('appointments.show', $row['appointment']->id_cita) }}">Ver</a>
+                                    @if ($row['canAttend'])
+                                        <a class="row-action" href="{{ route('appointments.attend', $row['appointment']->id_cita) }}">Atender</a>
+                                    @endif
+                                </nav>
+                            </li>
+                        @endforeach
+                    </ul>
+
+                    <div class="table-wrap agenda-table-wrap">
+                        <table class="data-table">
+                            <thead>
                                 <tr>
-                                    <td colspan="{{ $canViewReason ? 7 : 6 }}">No hay citas registradas para esa consulta.</td>
+                                    <th>Horario</th>
+                                    <th>Código</th>
+                                    <th>Paciente</th>
+                                    <th>Especialidad</th>
+                                    <th>Estado</th>
+                                    @if ($canViewReason)
+                                        <th>Motivo</th>
+                                    @endif
+                                    <th>Acciones</th>
                                 </tr>
-                            @endforelse
-                        </tbody>
-                    </table>
-                </div>
-                <p class="list-meta">{{ $appointments->count() === 1 ? 'Mostrando 1 cita' : 'Mostrando '.$appointments->count().' citas' }}</p>
+                            </thead>
+                            <tbody>
+                                @foreach ($rows as $row)
+                                    <tr>
+                                        <td>{{ $row['timeLabel'] }}</td>
+                                        <td>{{ $row['appointment']->codigo }}</td>
+                                        <td>{{ $row['appointment']->paciente_apellidos }}, {{ $row['appointment']->paciente_nombres }}</td>
+                                        <td>{{ $row['appointment']->especialidad_nombre }}</td>
+                                        <td>
+                                            <span class="status-pill {{ $row['statusClass'] }}">{{ $row['appointment']->estado }}</span>
+                                        </td>
+                                        @if ($canViewReason)
+                                            <td>{{ $row['appointment']->motivo_consulta ?: '—' }}</td>
+                                        @endif
+                                        <td>
+                                            <nav class="row-actions" aria-label="Acciones de {{ $row['appointment']->codigo }}">
+                                                <a class="row-action" href="{{ route('appointments.show', $row['appointment']->id_cita) }}">Ver</a>
+                                                @if ($row['canAttend'])
+                                                    <a class="row-action" href="{{ route('appointments.attend', $row['appointment']->id_cita) }}">Atender</a>
+                                                @endif
+                                            </nav>
+                                        </td>
+                                    </tr>
+                                @endforeach
+                            </tbody>
+                        </table>
+                    </div>
+                @endif
+                <p class="list-meta">{{ $rows->count() === 1 ? 'Mostrando 1 cita' : 'Mostrando '.$rows->count().' citas' }}</p>
             </div>
         @endif
     </section>

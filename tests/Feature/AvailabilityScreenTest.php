@@ -78,6 +78,7 @@ class AvailabilityScreenTest extends TestCase
                 ->assertSee('Pediatría')->assertSee('no lo reserva', false)
                 ->assertSee('Consultar')->assertSee('Semana')->assertSee('Lunes')
                 ->assertSee('Todos los médicos')->assertSee('Lucía')->assertSee('Vargas')
+                ->assertSee('week-day-name-short', false)->assertSee('booking-layout', false)
                 ->assertDontSee('Nuevo turno')->assertDontSee('Guardar cita')
                 ->assertDontSee('<script', false);
             $this->assertSame([], $this->app['db']->getConnections());
@@ -209,9 +210,10 @@ class AvailabilityScreenTest extends TestCase
                 ->assertSee('Buscar paciente')
                 ->assertSee('Cargar médicos')
                 ->assertSee('Ver en el calendario')
-                ->assertSee('nombre o cédula', false)
+                ->assertSee('Nombre o cédula')
                 ->assertSee('Elija especialidad para cargar médicos')
                 ->assertSee('Nuevo turno')
+                ->assertSee('booking-layout is-open', false)
                 ->assertDontSee('Confirmar programación')
                 ->assertDontSee('<script', false);
             $this->assertSame([], $this->app['db']->getConnections());
@@ -261,7 +263,7 @@ class AvailabilityScreenTest extends TestCase
                 ->assertOk()
                 ->assertSee('Elena Vargas')
                 ->assertSee('Elegir')
-                ->assertDontSee('Ningún paciente coincide')
+                ->assertDontSee('Ningún paciente coincide con «ele»')
                 ->assertSee('Ampliar horas')
                 ->assertSee('sin recargar')
                 ->assertDontSee('<script', false);
