@@ -81,6 +81,7 @@ class ReportScreenTest extends TestCase
             ->assertSee('isSecureContext', false)
             ->assertSee('getUserMedia', false)
             ->assertSee('submitVoiceTurn', false)
+            ->assertSee('speakableText', false)
             ->assertSee('Filtros manuales')
             ->assertSee('data-reports-date-presets', false)
             ->assertSee('data-reports-preset', false)

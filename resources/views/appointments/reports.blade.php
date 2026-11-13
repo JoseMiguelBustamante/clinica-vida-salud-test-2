@@ -416,7 +416,7 @@
                         <p class="reports-kpi-label">{{ $aiQuestion }}</p>
                     @endif
                     <div class="reports-ai-answer-body">{!! \Illuminate\Support\Str::markdown($aiAnswer) !!}</div>
-                    <p class="visually-hidden" id="reports-answer-plain">{{ $aiAnswer }}</p>
+                    <p class="visually-hidden" id="reports-answer-plain">{{ \App\Modules\Appointments\ReportSpeechText::plain($aiAnswer) }}</p>
                 </article>
             @endif
 
@@ -500,15 +500,37 @@
                 }
             }
 
+            function speakableText(text) {
+                var plain = String(text || '');
+                plain = plain.replace(/```[\s\S]*?```/g, ' ');
+                plain = plain.replace(/`([^`]+)`/g, '$1');
+                plain = plain.replace(/\*\*([^*]+)\*\*/g, '$1');
+                plain = plain.replace(/\*([^*]+)\*/g, '$1');
+                plain = plain.replace(/__([^_]+)__/g, '$1');
+                plain = plain.replace(/_([^_]+)_/g, '$1');
+                plain = plain.replace(/^#{1,6}\s+/gm, '');
+                plain = plain.replace(/\[([^\]]+)\]\([^)]+\)/g, '$1');
+                try {
+                    plain = plain.replace(/\p{Extended_Pictographic}/gu, '');
+                    plain = plain.replace(/\p{Emoji_Component}/gu, '');
+                } catch (e) {
+                    plain = plain.replace(/[\uD800-\uDBFF][\uDC00-\uDFFF]/g, '');
+                    plain = plain.replace(/[\u2600-\u27BF]/g, '');
+                }
+                plain = plain.replace(/[*#_~>`|]/g, ' ');
+                return plain.replace(/\s+/g, ' ').trim();
+            }
+
             function speakText(text, onDone) {
-                if (! ('speechSynthesis' in window) || ! text) {
+                var spoken = speakableText(text);
+                if (! ('speechSynthesis' in window) || ! spoken) {
                     if (onDone) {
                         onDone();
                     }
                     return;
                 }
                 window.speechSynthesis.cancel();
-                var utterance = new SpeechSynthesisUtterance(text);
+                var utterance = new SpeechSynthesisUtterance(spoken);
                 utterance.lang = 'es-ES';
                 utterance.onend = function () {
                     speaking = false;

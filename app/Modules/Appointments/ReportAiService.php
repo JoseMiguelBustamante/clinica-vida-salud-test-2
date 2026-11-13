@@ -146,6 +146,7 @@ final class ReportAiService
         return implode(' ', [
             'Eres el asistente de reportes administrativos de Clínica Vida Salud.',
             'Responde solo en español, de forma breve y clara.',
+            'Escribe texto plano pensado para leerse en voz alta: sin markdown, sin asteriscos, sin emojis ni símbolos decorativos.',
             'Usa únicamente los datos del reporte proporcionado.',
             'No inventes citas, totales, pacientes ni médicos.',
             'Si el dato no está en el reporte, dilo explícitamente.',
