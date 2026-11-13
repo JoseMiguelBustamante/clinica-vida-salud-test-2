@@ -555,6 +555,24 @@
                 return (finalTranscript + (interim || '')).replace(/\s+/g, ' ').trim();
             }
 
+            function looksLikeNewReportRequest(text) {
+                var spoken = String(text || '').toLowerCase();
+                if (spoken === '') {
+                    return false;
+                }
+                if (/^(hola|buenas|buenos días|buen día)\b/.test(spoken)) {
+                    return true;
+                }
+                if (/\b(nuevo reporte|otro reporte|otra reporte)\b/.test(spoken)) {
+                    return true;
+                }
+                if (/\breporte\b/.test(spoken) && /\b(gener|arma|armá|quiero|necesito|dame|ayuda|ayudame|ayúdame)\b/.test(spoken)) {
+                    return true;
+                }
+                return /\b(gener[ae]|arm[aeá]|necesito|quiero|dame)\b/.test(spoken)
+                    && !/\b(cu[aá]ntas|cu[aá]ntos|resum[ií]|decime|dime|qu[eé] hay)\b/.test(spoken);
+            }
+
             function submitVoiceTurn() {
                 if (submitting || ! form || ! pregunta) {
                     return;
@@ -571,6 +589,9 @@
                 } catch (e) {}
                 setDictateStatus('Enviando al asistente…');
                 var mode = form.getAttribute('data-voice-mode') || 'resumir';
+                if (looksLikeNewReportRequest(spoken)) {
+                    mode = 'resumir';
+                }
                 var target = document.getElementById(mode === 'preguntar' ? 'reports-action-preguntar' : 'reports-action-resumir');
                 if (! target || target.disabled) {
                     target = document.getElementById('reports-action-resumir');

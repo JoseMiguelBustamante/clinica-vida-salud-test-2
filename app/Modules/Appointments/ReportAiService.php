@@ -77,7 +77,17 @@ final class ReportAiService
     {
         $trimmed = trim($instruction);
         if ($trimmed === '') {
-            return $this->clarifyPlan(['Indique qué reporte necesita y el período (hoy, esta semana, este mes) o una fecha.']);
+            return $this->clarifyPlan([
+                '¿Qué reporte necesita? Por ejemplo: agenda diaria, citas de un día, totales del período o pacientes.',
+                '¿Qué período? Puede decir hoy, esta semana, este mes, este año, histórico o una fecha.',
+            ]);
+        }
+
+        if ($this->isVagueGenerateInstruction($trimmed)) {
+            return $this->clarifyPlan([
+                '¿Qué reporte necesita? Por ejemplo: agenda diaria, citas de un día, totales del período o pacientes.',
+                '¿Qué período? Puede decir hoy, esta semana, este mes, este año, histórico o una fecha.',
+            ]);
         }
 
         $deterministic = $this->deterministicPlan($trimmed, $today);
@@ -177,6 +187,7 @@ final class ReportAiService
             'este año/el año => tipo=totales_periodo, fecha_inicio=1 de enero del año de Hoy, fecha_fin=Hoy;',
             'todas las citas / todo el histórico / histórico => tipo=totales_periodo, fecha_inicio='.ReportDateDefaults::historyStart($today).', fecha_fin=Hoy.',
             'Nunca uses citas_fecha ni agenda_diaria para semana, mes, año o histórico: esos tipos son de un solo día.',
+            'Si el usuario solo pide generar un reporte (o saluda) sin decir tipo y período, status=clarify. Nunca inventes tipo ni fechas por defecto.',
             'Si falta el período, status=clarify y questions en español ofreciendo opciones naturales (hoy, esta semana, este mes, este año, histórico o una fecha), sin exigir el formato YYYY-MM-DD al usuario.',
             'Nunca inventes fechas, médico, especialidad ni estado que el usuario no haya indicado.',
             'pregunta es la pregunta opcional sobre el reporte ya generado; null si solo quiere generar o resumir.',
@@ -386,6 +397,57 @@ final class ReportAiService
         }
 
         return $plan;
+    }
+
+    /**
+     * True when the user asks to generate/change a report instead of questioning the current sheet.
+     */
+    public function isNewReportRequest(string $instruction): bool
+    {
+        $normalized = mb_strtolower(trim($instruction));
+        if ($normalized === '') {
+            return false;
+        }
+
+        if ($this->isVagueGenerateInstruction($normalized)) {
+            return true;
+        }
+
+        return preg_match('/\b(nuevo reporte|otra?\s+reporte|otro reporte|gener[aeá].*\breporte|arm[aeá].*\breporte|hac[eé].*\breporte|quiero\s+.*\breporte|necesito\s+.*\breporte|dame\s+.*\breporte)\b/u', $normalized) === 1;
+    }
+
+    /**
+     * True when the user wants a report but did not name a usable type/period yet.
+     */
+    public function isVagueGenerateInstruction(string $instruction): bool
+    {
+        $normalized = mb_strtolower(trim($instruction));
+        if ($normalized === '') {
+            return true;
+        }
+
+        if ($this->deterministicPlan($instruction, '2000-01-01') !== null) {
+            return false;
+        }
+
+        if ($this->isFullHistoryInstruction($normalized) || $this->isMultiDayRelativeInstruction($normalized, '2000-01-01')) {
+            return false;
+        }
+
+        if ($this->isDateFocusedInstruction($instruction, '2000-01-01')) {
+            return false;
+        }
+
+        if (preg_match('/^(hola|buenas|buenos d[ií]as|buen d[ií]a)\b/u', $normalized) === 1) {
+            return true;
+        }
+
+        if (preg_match('/\breporte\b/u', $normalized) === 1) {
+            return true;
+        }
+
+        return preg_match('/\b(gener[aeá]|arm[aeá]|necesito|quiero|dame|ayud)\b/u', $normalized) === 1
+            && preg_match('/\b(agenda|citas|totales|pacientes|m[eé]dico|especialidad|estado|atendidas|canceladas)\b/u', $normalized) !== 1;
     }
 
     private function isDateFocusedInstruction(string $instruction, string $today): bool

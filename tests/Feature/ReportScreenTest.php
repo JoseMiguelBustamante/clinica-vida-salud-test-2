@@ -82,6 +82,7 @@ class ReportScreenTest extends TestCase
             ->assertSee('getUserMedia', false)
             ->assertSee('submitVoiceTurn', false)
             ->assertSee('speakableText', false)
+            ->assertSee('looksLikeNewReportRequest', false)
             ->assertSee('Filtros manuales')
             ->assertSee('data-reports-date-presets', false)
             ->assertSee('data-reports-preset', false)
@@ -673,6 +674,36 @@ class ReportScreenTest extends TestCase
         $this->followRedirects($response)
             ->assertOk()
             ->assertSee('Genere un reporte primero para poder preguntar.');
+        Http::assertNothingSent();
+        $this->assertSame([], $this->app['db']->getConnections());
+    }
+
+    public function test_vague_generate_request_asks_before_building_a_report(): void
+    {
+        config([
+            'openai.api_key' => 'test-openai-key',
+            'openai.model' => 'gpt-4o-mini',
+            'openai.base_url' => 'https://api.openai.com/v1',
+        ]);
+        Http::fake();
+        $this->authorizeReports(2);
+        $this->mockCatalogLookups(1);
+        $this->withSession([Auth::guard('web')->getName() => 17]);
+
+        $response = $this->from('/reportes?tipo=citas_fecha&fecha=2026-11-13&generar=1')
+            ->post('/reportes/asistente', [
+                'tipo' => 'citas_fecha',
+                'fecha' => '2026-11-13',
+                'accion' => 'preguntar',
+                'pregunta' => 'generame un reporte',
+            ]);
+
+        $response->assertRedirect();
+        $this->followRedirects($response)
+            ->assertOk()
+            ->assertSee('¿Qué reporte necesita?')
+            ->assertSee('¿Qué período?')
+            ->assertDontSee('Respuesta del asistente');
         Http::assertNothingSent();
         $this->assertSame([], $this->app['db']->getConnections());
     }

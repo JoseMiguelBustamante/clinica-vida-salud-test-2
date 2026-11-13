@@ -271,6 +271,43 @@ class ReportAiServiceTest extends TestCase
         Http::assertNothingSent();
     }
 
+    public function test_plan_asks_when_generate_request_is_vague(): void
+    {
+        config([
+            'openai.api_key' => '',
+            'openai.model' => '',
+            'openai.base_url' => '',
+        ]);
+        Http::fake();
+
+        $plan = (new ReportAiService)->planReportInstruction(
+            'generame un reporte',
+            '2026-11-13',
+            ['tipo' => 'citas_fecha', 'fecha' => '2026-11-13'],
+        );
+
+        $this->assertSame('clarify', $plan['status']);
+        $this->assertNull($plan['tipo']);
+        $this->assertTrue(collect($plan['questions'])->contains(
+            fn (string $question): bool => str_contains(mb_strtolower($question), 'qué reporte')
+                || str_contains(mb_strtolower($question), 'que reporte')
+        ));
+        $this->assertTrue(collect($plan['questions'])->contains(
+            fn (string $question): bool => str_contains(mb_strtolower($question), 'período')
+                || str_contains(mb_strtolower($question), 'periodo')
+        ));
+        Http::assertNothingSent();
+    }
+
+    public function test_new_report_request_is_detected_for_voice_follow_up(): void
+    {
+        $assistant = new ReportAiService;
+
+        $this->assertTrue($assistant->isNewReportRequest('generame un reporte'));
+        $this->assertTrue($assistant->isNewReportRequest('Necesito ayuda para generar un reporte.'));
+        $this->assertFalse($assistant->isNewReportRequest('¿cuántas canceladas hubo?'));
+    }
+
     /**
      * @return array{title: string, headers: list<string>, rows: list<list<string>>, summary: list<string>}
      */

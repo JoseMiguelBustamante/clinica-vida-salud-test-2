@@ -58,10 +58,12 @@ The assistant is the primary block at the top of the page; manual filters stay
 collapsed unless already in use. AI answers render after the result table.
 Compatible browsers can talk to the assistant: speech is recognized, the same
 generate/ask request is submitted, and the reply (or clarifications) is spoken
-back after stripping markdown markers and emoji so playback sounds natural. Relative periods such as hoy, esta semana, este mes, este año and phrases like
-todas las citas / histórico are resolved to calendar ranges and use a period
-report (not a single-day agenda). Clarifications ask for a natural period, not
-only YYYY-MM-DD.
+back after stripping markdown markers and emoji so playback sounds natural. Vague requests such as “generame un reporte” ask which report and period first
+instead of inventing a default sheet. Relative periods such as hoy, esta semana,
+este mes, este año and phrases like todas las citas / histórico are resolved to
+calendar ranges and use a period report (not a single-day agenda). Clarifications
+ask for a natural period, not only YYYY-MM-DD. After a report exists, a new
+generate request re-enters planning instead of answering the previous sheet.
 Manual date shortcuts fill the filter inputs without navigating away; only
 Generar con filtros submits. Chrome on phones requires a secure HTTPS context
 and microphone permission; unsupported browsers hide the voice controls. Text

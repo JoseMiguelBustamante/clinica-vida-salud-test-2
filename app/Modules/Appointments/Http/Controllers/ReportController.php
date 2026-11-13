@@ -110,23 +110,33 @@ final class ReportController
                     ->withErrors(['pregunta' => 'Genere un reporte primero para poder preguntar.']);
             }
 
+            // After a report exists, voice defaults to "preguntar". A new generate
+            // request must re-enter planning instead of answering the previous sheet.
+            $wantsNewReport = $this->assistant->isNewReportRequest($instruction);
+            if ($action === 'preguntar' && $wantsNewReport) {
+                $action = 'resumir';
+            }
+
             // "Generar reporte" with a new instruction must re-plan. Stale hidden
             // tipo/fecha from the previous result would otherwise regenerate the same report.
             $shouldReplan = $action === 'resumir' && $instruction !== '';
+            $priorCriteria = $wantsNewReport
+                ? []
+                : [
+                    'tipo' => $validated['tipo'] ?? null,
+                    'fecha' => $validated['fecha'] ?? null,
+                    'fecha_inicio' => $validated['fecha_inicio'] ?? null,
+                    'fecha_fin' => $validated['fecha_fin'] ?? null,
+                    'id_medico' => isset($validated['id_medico']) ? (int) $validated['id_medico'] : null,
+                    'id_especialidad' => isset($validated['id_especialidad']) ? (int) $validated['id_especialidad'] : null,
+                    'estado' => $validated['estado'] ?? null,
+                ];
 
             if ($shouldReplan || ! $this->isReadyToAutoGenerate($validated)) {
                 $plan = $this->assistant->planReportInstruction(
                     $instruction !== '' ? $instruction : 'Necesito ayuda para generar un reporte.',
                     ReportDateDefaults::today(),
-                    [
-                        'tipo' => $validated['tipo'] ?? null,
-                        'fecha' => $validated['fecha'] ?? null,
-                        'fecha_inicio' => $validated['fecha_inicio'] ?? null,
-                        'fecha_fin' => $validated['fecha_fin'] ?? null,
-                        'id_medico' => isset($validated['id_medico']) ? (int) $validated['id_medico'] : null,
-                        'id_especialidad' => isset($validated['id_especialidad']) ? (int) $validated['id_especialidad'] : null,
-                        'estado' => $validated['estado'] ?? null,
-                    ],
+                    $priorCriteria,
                 );
 
                 if ($plan['status'] === 'clarify') {
