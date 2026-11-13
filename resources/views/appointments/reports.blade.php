@@ -48,12 +48,12 @@
 
         <article class="list-card detail-card reports-ai-card" id="asistente-reporte" aria-labelledby="assistant-title">
             <h2 id="assistant-title">Asistente del reporte</h2>
-            <p class="reports-filter-hint" id="assistant-help">Escriba o dicte qué reporte necesita y la fecha (AAAA-MM-DD). Si falta un dato, el asistente se lo pide.</p>
+            <p class="reports-filter-hint" id="assistant-help">Hable con el asistente: diga qué reporte necesita y la fecha (AAAA-MM-DD). Él responde por voz. También puede escribir.</p>
             @if (! ($aiConfigured ?? false))
                 <p class="form-status" role="status">El asistente no está configurado. En Dokploy defina <code>OPENAI_API_KEY</code>, <code>OPENAI_BASE_URL</code> y <code>OPENAI_MODEL</code> del proveedor que use (API compatible; la suscripción del chat no alcanza).</p>
             @endif
             @if (! empty($aiClarifications))
-                <div class="form-status" role="status">
+                <div class="form-status" role="status" id="reports-clarifications">
                     <p>Para continuar, complete:</p>
                     <ul>
                         @foreach ($aiClarifications as $clarification)
@@ -61,37 +61,44 @@
                         @endforeach
                     </ul>
                 </div>
+                <p class="visually-hidden" id="reports-clarify-plain">Para continuar: {{ implode('. ', $aiClarifications) }}</p>
             @endif
-            <form class="reports-ai-form" method="post" action="{{ route('reports.assistant', absolute: false) }}">
+            <form class="reports-ai-form" method="post" action="{{ route('reports.assistant', absolute: false) }}" id="reports-ai-form" data-voice-mode="{{ $generated ? 'preguntar' : 'resumir' }}">
                 @csrf
                 @foreach ($query as $key => $value)
                     <input type="hidden" name="{{ $key }}" value="{{ $value }}">
                 @endforeach
-                <div class="field">
-                    <label for="pregunta">Instrucción o pregunta</label>
-                    <textarea id="pregunta" name="pregunta" rows="3" maxlength="500" aria-describedby="assistant-help reports-dictate-status" placeholder="Ejemplo: Agenda diaria de cada médico para el 2026-11-12" @disabled(! ($aiConfigured ?? false))>{{ old('pregunta', $aiQuestion && $aiQuestion !== 'Resumen del reporte' ? $aiQuestion : '') }}</textarea>
-                </div>
-                <div class="reports-ai-voice" data-reports-voice hidden>
-                    <button class="reports-listen-btn" type="button" id="reports-dictate" @disabled(! ($aiConfigured ?? false)) aria-pressed="false" aria-label="Escuchar y dictar la instrucción">
+                <div class="reports-ai-voice reports-ai-voice-panel" data-reports-voice hidden>
+                    <button class="reports-listen-btn reports-listen-btn-primary" type="button" id="reports-dictate" @disabled(! ($aiConfigured ?? false)) aria-pressed="false" aria-label="Hablar con el asistente">
                         <span class="reports-listen-pulse" aria-hidden="true"></span>
                         <span class="reports-listen-icon" aria-hidden="true">
                             <svg viewBox="0 0 24 24" focusable="false">
                                 <path fill="currentColor" d="M12 14a3 3 0 0 0 3-3V6a3 3 0 0 0-6 0v5a3 3 0 0 0 3 3Zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.9V21h2v-3.1A7 7 0 0 0 19 11h-2Z"/>
                             </svg>
                         </span>
-                        <span class="reports-listen-label">Escuchar</span>
+                        <span class="reports-listen-copy">
+                            <span class="reports-listen-label">Hablar con el asistente</span>
+                            <span class="reports-listen-caption">Toque, hable y espere la respuesta</span>
+                        </span>
                     </button>
-                    <p class="reports-filter-hint" id="reports-dictate-status" role="status" aria-live="polite"></p>
+                    <p class="reports-filter-hint" id="reports-dictate-status" role="status" aria-live="polite">Toque el micrófono, diga el reporte con fecha y el asistente continuará solo.</p>
                 </div>
-                <div class="reports-ai-actions">
-                    <button class="button" type="submit" name="accion" value="resumir" @disabled(! ($aiConfigured ?? false))>Generar reporte</button>
-                    @if ($generated)
-                        <button class="button button-inline button-quiet" type="submit" name="accion" value="preguntar" @disabled(! ($aiConfigured ?? false))>Preguntar</button>
-                    @endif
-                </div>
-                @unless ($generated)
-                    <p class="reports-filter-hint" id="assistant-ask-hint">Preguntar se habilita cuando el reporte ya se generó sin error.</p>
-                @endunless
+                <details class="reports-ai-text-fallback">
+                    <summary>Escribir en texto</summary>
+                    <div class="field">
+                        <label for="pregunta">Instrucción o pregunta</label>
+                        <textarea id="pregunta" name="pregunta" rows="3" maxlength="500" aria-describedby="assistant-help reports-dictate-status" placeholder="Ejemplo: Agenda diaria de cada médico para el 2026-11-12" @disabled(! ($aiConfigured ?? false))>{{ old('pregunta', $aiQuestion && $aiQuestion !== 'Resumen del reporte' ? $aiQuestion : '') }}</textarea>
+                    </div>
+                    <div class="reports-ai-actions">
+                        <button class="button" type="submit" name="accion" value="resumir" id="reports-action-resumir" @disabled(! ($aiConfigured ?? false))>Generar reporte</button>
+                        @if ($generated)
+                            <button class="button button-inline button-quiet" type="submit" name="accion" value="preguntar" id="reports-action-preguntar" @disabled(! ($aiConfigured ?? false))>Preguntar</button>
+                        @endif
+                    </div>
+                    @unless ($generated)
+                        <p class="reports-filter-hint" id="assistant-ask-hint">Preguntar se habilita cuando el reporte ya se generó sin error.</p>
+                    @endunless
+                </details>
             </form>
         </article>
 
@@ -423,6 +430,7 @@
         (function () {
             var Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
             var voiceBox = document.querySelector('[data-reports-voice]');
+            var form = document.getElementById('reports-ai-form');
             var dictateBtn = document.getElementById('reports-dictate');
             var dictateLabel = dictateBtn ? dictateBtn.querySelector('.reports-listen-label') : null;
             var dictateStatus = document.getElementById('reports-dictate-status');
@@ -430,13 +438,16 @@
             var speakBtn = document.getElementById('reports-speak-answer');
             var speakLabel = speakBtn ? speakBtn.querySelector('.reports-speak-label') : null;
             var answerPlain = document.getElementById('reports-answer-plain');
+            var clarifyPlain = document.getElementById('reports-clarify-plain');
             var recognition = null;
             var listening = false;
             var starting = false;
-            var baseText = '';
+            var submitting = false;
+            var speaking = false;
             var finalTranscript = '';
             var secure = window.isSecureContext === true;
-            var httpsHint = 'El dictado en Chrome del celular requiere HTTPS. Abrí https://' + location.host + location.pathname + location.search;
+            var voiceKey = 'reportsVoiceInteractive';
+            var httpsHint = 'La conversación por voz en Chrome del celular requiere HTTPS. Abrí https://' + location.host + location.pathname + location.search;
 
             function setDictateStatus(message) {
                 if (dictateStatus) {
@@ -450,20 +461,80 @@
                 }
                 dictateBtn.setAttribute('aria-pressed', active ? 'true' : 'false');
                 dictateBtn.classList.toggle('is-listening', active);
-                dictateLabel.textContent = active ? 'Escuchando…' : 'Escuchar';
-                dictateBtn.setAttribute('aria-label', active ? 'Detener escucha' : 'Escuchar y dictar la instrucción');
+                dictateLabel.textContent = active ? 'Escuchando…' : 'Hablar con el asistente';
+                dictateBtn.setAttribute('aria-label', active ? 'Detener conversación' : 'Hablar con el asistente');
             }
 
-            function composeDictatedValue(interim) {
-                var spoken = (finalTranscript + (interim || '')).replace(/\s+/g, ' ').trim();
-                var prefix = baseText.replace(/\s+/g, ' ').trim();
-                if (prefix === '') {
-                    return spoken;
+            function setSpeakUi(active) {
+                if (! speakBtn) {
+                    return;
                 }
+                speakBtn.setAttribute('aria-pressed', active ? 'true' : 'false');
+                speakBtn.classList.toggle('is-speaking', active);
+                if (speakLabel) {
+                    speakLabel.textContent = active ? 'Detener audio' : 'Escuchar respuesta';
+                }
+            }
+
+            function speakText(text, onDone) {
+                if (! ('speechSynthesis' in window) || ! text) {
+                    if (onDone) {
+                        onDone();
+                    }
+                    return;
+                }
+                window.speechSynthesis.cancel();
+                var utterance = new SpeechSynthesisUtterance(text);
+                utterance.lang = 'es-ES';
+                utterance.onend = function () {
+                    speaking = false;
+                    setSpeakUi(false);
+                    if (onDone) {
+                        onDone();
+                    }
+                };
+                utterance.onerror = function () {
+                    speaking = false;
+                    setSpeakUi(false);
+                    if (onDone) {
+                        onDone();
+                    }
+                };
+                speaking = true;
+                setSpeakUi(true);
+                window.speechSynthesis.speak(utterance);
+            }
+
+            function composeSpokenValue(interim) {
+                return (finalTranscript + (interim || '')).replace(/\s+/g, ' ').trim();
+            }
+
+            function submitVoiceTurn() {
+                if (submitting || ! form || ! pregunta) {
+                    return;
+                }
+                var spoken = finalTranscript.replace(/\s+/g, ' ').trim();
                 if (spoken === '') {
-                    return prefix;
+                    setDictateStatus('No capturé la frase. Toque Hablar e intente de nuevo.');
+                    return;
                 }
-                return prefix + ' ' + spoken;
+                submitting = true;
+                pregunta.value = spoken;
+                try {
+                    sessionStorage.setItem(voiceKey, '1');
+                } catch (e) {}
+                setDictateStatus('Enviando al asistente…');
+                var mode = form.getAttribute('data-voice-mode') || 'resumir';
+                var target = document.getElementById(mode === 'preguntar' ? 'reports-action-preguntar' : 'reports-action-resumir');
+                if (! target || target.disabled) {
+                    target = document.getElementById('reports-action-resumir');
+                }
+                if (! target || target.disabled) {
+                    submitting = false;
+                    setDictateStatus('No se pudo enviar. Revise la configuración del asistente.');
+                    return;
+                }
+                target.click();
             }
 
             function bindRecognitionHandlers(instance) {
@@ -471,33 +542,36 @@
                     listening = true;
                     starting = false;
                     setListenUi(true);
-                    setDictateStatus('Escuchando… diga la instrucción del reporte.');
+                    setDictateStatus('Escuchando… diga el reporte o la pregunta.');
                 };
                 instance.onerror = function (event) {
                     starting = false;
                     stopListening(false);
                     if (event.error === 'not-allowed') {
                         setDictateStatus(secure
-                            ? 'Chrome bloqueó el micrófono. En el candado del sitio, permití Micrófono y volvé a tocar Escuchar.'
+                            ? 'Chrome bloqueó el micrófono. En el candado del sitio, permití Micrófono y vuelva a hablar.'
                             : httpsHint);
                     } else if (event.error === 'service-not-allowed') {
                         setDictateStatus(secure
-                            ? 'El servicio de dictado no está disponible en este momento. Probá de nuevo.'
+                            ? 'El servicio de voz no está disponible ahora. Intente de nuevo.'
                             : httpsHint);
                     } else if (event.error === 'network') {
-                        setDictateStatus('Sin conexión al servicio de dictado. Revisá la red e intentá otra vez.');
+                        setDictateStatus('Sin conexión al servicio de voz. Revise la red e intente otra vez.');
                     } else if (event.error === 'no-speech') {
-                        setDictateStatus('No se escuchó audio. Tocá Escuchar e intentá otra vez.');
+                        setDictateStatus('No se escuchó audio. Toque Hablar e intente de nuevo.');
                     } else if (event.error !== 'aborted') {
-                        setDictateStatus('No se pudo completar el dictado. Intente de nuevo.');
-                    } else {
-                        setDictateStatus('');
+                        setDictateStatus('No se pudo completar la conversación. Intente de nuevo.');
                     }
                 };
                 instance.onend = function () {
                     starting = false;
-                    if (listening) {
-                        stopListening(true);
+                    if (! listening) {
+                        return;
+                    }
+                    var hadSpeech = finalTranscript.replace(/\s+/g, ' ').trim() !== '';
+                    stopListening(true);
+                    if (hadSpeech) {
+                        submitVoiceTurn();
                     }
                 };
                 instance.onresult = function (event) {
@@ -510,9 +584,9 @@
                             interim += chunk;
                         }
                     }
-                    pregunta.value = composeDictatedValue(interim);
+                    pregunta.value = composeSpokenValue(interim);
                     if (event.results[event.results.length - 1].isFinal) {
-                        setDictateStatus('Texto listo. Puede generar o tocar Escuchar otra vez.');
+                        setDictateStatus('Entendido. Enviando al asistente…');
                     }
                 };
             }
@@ -532,11 +606,7 @@
                 starting = false;
                 setListenUi(false);
                 if (! keepStatus) {
-                    setDictateStatus('');
-                } else if (dictateStatus && dictateStatus.textContent.indexOf('Escuchando') === 0) {
-                    setDictateStatus(finalTranscript.trim() === ''
-                        ? ''
-                        : 'Texto listo. Puede generar o tocar Escuchar otra vez.');
+                    setDictateStatus('Toque el micrófono, diga el reporte con fecha y el asistente continuará solo.');
                 }
                 if (recognition) {
                     try { recognition.abort(); } catch (e) {}
@@ -558,13 +628,20 @@
                     setDictateStatus(httpsHint);
                     return;
                 }
-                if (starting || listening) {
+                if (starting || listening || submitting) {
                     return;
+                }
+                if (speaking) {
+                    window.speechSynthesis.cancel();
+                    speaking = false;
+                    setSpeakUi(false);
                 }
                 starting = true;
                 listening = false;
-                baseText = (pregunta.value || '').replace(/\s+/g, ' ').trim();
                 finalTranscript = '';
+                if (pregunta) {
+                    pregunta.value = '';
+                }
                 setDictateStatus('Preparando el micrófono…');
                 if (recognition) {
                     try { recognition.abort(); } catch (e) {}
@@ -577,14 +654,43 @@
                     } catch (e) {
                         starting = false;
                         setListenUi(false);
-                        setDictateStatus('No se pudo iniciar el dictado. Tocá Escuchar otra vez.');
+                        setDictateStatus('No se pudo iniciar la conversación. Toque Hablar otra vez.');
                     }
                 }).catch(function () {
                     starting = false;
                     setListenUi(false);
                     setDictateStatus(secure
-                        ? 'No se pudo usar el micrófono. Revisá el permiso de Chrome para este sitio.'
+                        ? 'No se pudo usar el micrófono. Revise el permiso de Chrome para este sitio.'
                         : httpsHint);
+                });
+            }
+
+            function resumeVoiceReply() {
+                var active = false;
+                try {
+                    active = sessionStorage.getItem(voiceKey) === '1';
+                    if (active) {
+                        sessionStorage.removeItem(voiceKey);
+                    }
+                } catch (e) {
+                    active = false;
+                }
+                if (! active) {
+                    return;
+                }
+                var reply = '';
+                if (clarifyPlain && clarifyPlain.textContent.trim() !== '') {
+                    reply = clarifyPlain.textContent.trim();
+                } else if (answerPlain && answerPlain.textContent.trim() !== '') {
+                    reply = answerPlain.textContent.trim();
+                } else if (document.getElementById('resultado-reporte')) {
+                    reply = 'Listo. Ya generé el reporte en pantalla. Toque Hablar para preguntarme algo.';
+                } else {
+                    reply = 'Listo. Toque Hablar para continuar con el asistente.';
+                }
+                setDictateStatus('Respondiendo…');
+                speakText(reply, function () {
+                    setDictateStatus('Toque Hablar para continuar la conversación.');
                 });
             }
 
@@ -605,50 +711,22 @@
 
             if (speakBtn && answerPlain && 'speechSynthesis' in window) {
                 speakBtn.hidden = false;
-                var speaking = false;
                 speakBtn.addEventListener('click', function () {
                     if (speaking) {
                         window.speechSynthesis.cancel();
                         speaking = false;
-                        if (speakLabel) {
-                            speakLabel.textContent = 'Escuchar respuesta';
-                        }
-                        speakBtn.setAttribute('aria-pressed', 'false');
-                        speakBtn.classList.remove('is-speaking');
+                        setSpeakUi(false);
                         return;
                     }
                     var text = (answerPlain.textContent || '').trim();
                     if (text === '') {
                         return;
                     }
-                    window.speechSynthesis.cancel();
-                    var utterance = new SpeechSynthesisUtterance(text);
-                    utterance.lang = 'es-ES';
-                    utterance.onend = function () {
-                        speaking = false;
-                        if (speakLabel) {
-                            speakLabel.textContent = 'Escuchar respuesta';
-                        }
-                        speakBtn.setAttribute('aria-pressed', 'false');
-                        speakBtn.classList.remove('is-speaking');
-                    };
-                    utterance.onerror = function () {
-                        speaking = false;
-                        if (speakLabel) {
-                            speakLabel.textContent = 'Escuchar respuesta';
-                        }
-                        speakBtn.setAttribute('aria-pressed', 'false');
-                        speakBtn.classList.remove('is-speaking');
-                    };
-                    speaking = true;
-                    if (speakLabel) {
-                        speakLabel.textContent = 'Detener audio';
-                    }
-                    speakBtn.setAttribute('aria-pressed', 'true');
-                    speakBtn.classList.add('is-speaking');
-                    window.speechSynthesis.speak(utterance);
+                    speakText(text);
                 });
             }
+
+            resumeVoiceReply();
         })();
     </script>
 @endsection

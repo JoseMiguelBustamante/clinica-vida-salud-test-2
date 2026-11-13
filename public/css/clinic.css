@@ -2201,6 +2201,63 @@ a.code-link:hover {
     gap: 0.65rem 0.95rem;
 }
 
+.reports-ai-voice-panel {
+    display: grid;
+    gap: 0.7rem;
+    margin: 0.15rem 0 0.35rem;
+}
+
+.reports-listen-btn-primary {
+    width: 100%;
+    justify-content: flex-start;
+    min-height: 3.6rem;
+    padding: 0.55rem 1rem 0.55rem 0.55rem;
+    border-radius: 1.15rem;
+    box-shadow: 0 10px 24px rgba(15, 40, 36, 0.06);
+}
+
+.reports-listen-copy {
+    display: grid;
+    gap: 0.1rem;
+    text-align: left;
+}
+
+.reports-listen-caption {
+    color: var(--clinic-muted);
+    font-size: 0.82rem;
+    font-weight: 550;
+}
+
+.reports-listen-btn-primary.is-listening .reports-listen-caption {
+    color: #b42318;
+}
+
+.reports-ai-text-fallback {
+    margin-top: 0.35rem;
+    border-top: 1px solid var(--clinic-line);
+    padding-top: 0.75rem;
+}
+
+.reports-ai-text-fallback > summary {
+    cursor: pointer;
+    color: var(--clinic-green-dark);
+    font-weight: 650;
+    list-style: none;
+}
+
+.reports-ai-text-fallback > summary::-webkit-details-marker {
+    display: none;
+}
+
+.reports-ai-text-fallback[open] > summary {
+    margin-bottom: 0.75rem;
+}
+
+.reports-ai-text-fallback .field,
+.reports-ai-text-fallback .reports-ai-actions {
+    margin-top: 0.65rem;
+}
+
 .reports-listen-btn,
 .reports-speak-btn {
     position: relative;

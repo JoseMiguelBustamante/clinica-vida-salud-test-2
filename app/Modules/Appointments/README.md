@@ -56,10 +56,11 @@ On mobile, expand **Menú de navegación** to access the existing authorized lin
 desktop navigation stays expanded. Report filters stack in one column on mobile.
 The assistant is the primary block at the top of the page; manual filters stay
 collapsed unless already in use. AI answers render after the result table.
-Compatible browsers can dictate the instruction into the assistant field
-(Speech Recognition) and play back the answer (speech synthesis). Chrome on
-phones requires a secure HTTPS context and microphone permission; unsupported
-browsers hide those controls. Submitting requires
+Compatible browsers can talk to the assistant: speech is recognized, the same
+generate/ask request is submitted, and the reply (or clarifications) is spoken
+back. Chrome on phones requires a secure HTTPS context and microphone
+permission; unsupported browsers hide the voice controls. Text entry remains
+available as a secondary path. Submitting requires
 the existing report permission, CSRF token and provider configuration. Verify AI
 answers against the report.
 

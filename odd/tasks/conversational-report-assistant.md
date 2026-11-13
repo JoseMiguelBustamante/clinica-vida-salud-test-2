@@ -13,7 +13,7 @@ S6. "Sip continuemos" — implement this conversational flow on test-2 and publi
 T1 | S3,S5 | inline | done | ReportAiService planning: ready vs clarify; never invent missing dates; unit tests.
 T2 | S1-S4 | inline | done | Controller + AskReportAssistantRequest conversational path; keep complete-params legacy path green.
 T3 | S1-S4 | inline | done | Reports UI/README: assistant enabled without prior generate; show clarifications; demote manual filters.
-T4 | S6 | inline | pending | Focused verification, conventional commit, push test-2/feat/clinic-bootstrap.
+T4 | S6 | inline | done | Commit 0ec585d pushed to origin/feat/clinic-bootstrap. Focused PHPUnit 25 PASS; Chromium 42 PASS.
 
 ## Log
 L1. User request chain (verbatim fragments): "Mi idea es que el asistente me ayuden a generar reportes y al mismo tiempo poder hacer preguntas sobre ese reporte"; "Con tipo y fecha que le decimos debería de preguntarnos"; "le tendría que decir al asistente las fechas y hora si no sé la doy no podría generar el reporte entonces tiene que consultarme si me falta algún parámetros tienen que consultarme"; "No elegir decile al asistente para que el haga la elección"; date-only closed with "Sip"; implement with "Sip continuemos".
