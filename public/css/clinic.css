@@ -3160,12 +3160,23 @@ body.is-app .booking-cancel:hover {
     }
 
     .app-sidebar {
-        padding: 0.75rem 0.9rem;
+        padding: 0.75rem 0.9rem 0.95rem;
+        background: #ffffff;
+        border-bottom: 1px solid #c5d8d1;
+        box-shadow: 0 10px 28px rgba(15, 40, 36, 0.08);
     }
 
     .app-brand {
-        margin-bottom: 0.35rem;
+        margin-bottom: 0.55rem;
         font-size: 1.05rem;
+    }
+
+    .app-brand .brand-badge {
+        width: 1.75rem;
+        height: 1.75rem;
+        border-radius: 0.45rem;
+        font-size: 1rem;
+        box-shadow: none;
     }
 
     .app-menu-switch {
@@ -3177,7 +3188,40 @@ body.is-app .booking-cancel:hover {
     }
 
     .app-menu-toggle {
-        display: block;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.75rem;
+        min-height: 2.75rem;
+        padding: 0.7rem 0.9rem;
+        background: #e7f5ef;
+        border: 1px solid #9fc9b8;
+        border-radius: 0.85rem;
+        color: var(--clinic-green-dark);
+        font-weight: 750;
+        box-shadow: 0 1px 0 rgba(255, 255, 255, 0.8) inset;
+    }
+
+    .app-menu-toggle::after {
+        content: "";
+        width: 0.5rem;
+        height: 0.5rem;
+        flex: 0 0 auto;
+        border-right: 2px solid currentColor;
+        border-bottom: 2px solid currentColor;
+        transform: rotate(45deg);
+        opacity: 0.85;
+        transition: transform 0.15s ease;
+    }
+
+    .app-menu-switch:checked + .app-menu-toggle {
+        background: #d8f3e8;
+        border-color: var(--clinic-green-dark);
+    }
+
+    .app-menu-switch:checked + .app-menu-toggle::after {
+        transform: rotate(-135deg);
+        margin-top: 0.2rem;
     }
 
     .app-menu-switch:focus-visible + .app-menu-toggle {
@@ -3190,7 +3234,20 @@ body.is-app .booking-cancel:hover {
     }
 
     .app-menu-content {
-        padding-top: 0.5rem;
+        margin-top: 0.55rem;
+        padding: 0.65rem;
+        border: 1px solid #c5d8d1;
+        border-radius: 0.95rem;
+        background: #f3faf7;
+        box-shadow: inset 0 0 0 1px rgba(15, 92, 82, 0.04);
+    }
+
+    .app-nav-package-title:hover {
+        background: rgba(255, 255, 255, 0.9);
+    }
+
+    .app-nav-link:hover {
+        background: #ffffff;
     }
 
     .app-nav {

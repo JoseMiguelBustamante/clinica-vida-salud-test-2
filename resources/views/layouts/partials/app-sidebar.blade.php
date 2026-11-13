@@ -35,7 +35,7 @@
     $openP7 = request()->routeIs('portal.profile', 'patients.declared', 'appointments.clinical-history', 'appointments.clinical-history.show');
 @endphp
 <aside class="app-sidebar" aria-label="Paquetes del sistema">
-    <a class="login-logo app-brand" href="{{ route('panel') }}">
+    <a class="login-logo app-brand" href="{{ route('panel') }}" aria-label="Ir al panel">
         <span class="brand-badge" aria-hidden="true">+</span>
         <span>Clínica Vida Salud</span>
     </a>

@@ -95,6 +95,10 @@ class ReportScreenTest extends TestCase
         $this->assertSame(0, $xpath->query('//form[contains(@class,"reports-ai-form")]//button[@name="accion" and @value="preguntar"]')->length);
         $this->assertGreaterThan(0, $xpath->query('//div[@data-reports-date-presets]//button[@type="button" and @data-reports-preset]')->length);
         $this->assertSame(0, $xpath->query('//div[@data-reports-date-presets]//a')->length);
+        $this->assertSame(1, $xpath->query('//a[contains(@class,"app-brand") and contains(@aria-label,"panel")]')->length);
+        $this->assertSame(0, $xpath->query('//button[.//span[contains(@class,"brand-badge")] or normalize-space()="+"]')->length);
+        $this->assertSame(1, $xpath->query('//label[@class="app-menu-toggle" and @for="app-menu-switch"]')->length);
+        $this->assertSame(1, $xpath->query('//input[@id="app-menu-switch" and @type="checkbox"]')->length);
         $this->assertSame([], $this->app['db']->getConnections());
     }
 
