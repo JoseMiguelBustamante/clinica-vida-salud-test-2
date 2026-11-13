@@ -72,8 +72,14 @@
                     <textarea id="pregunta" name="pregunta" rows="3" maxlength="500" aria-describedby="assistant-help reports-dictate-status" placeholder="Ejemplo: Agenda diaria de cada médico para el 2026-11-12" @disabled(! ($aiConfigured ?? false))>{{ old('pregunta', $aiQuestion && $aiQuestion !== 'Resumen del reporte' ? $aiQuestion : '') }}</textarea>
                 </div>
                 <div class="reports-ai-voice" data-reports-voice hidden>
-                    <button class="button button-inline button-quiet" type="button" id="reports-dictate" @disabled(! ($aiConfigured ?? false)) aria-pressed="false">
-                        Dictar
+                    <button class="reports-listen-btn" type="button" id="reports-dictate" @disabled(! ($aiConfigured ?? false)) aria-pressed="false" aria-label="Escuchar y dictar la instrucción">
+                        <span class="reports-listen-pulse" aria-hidden="true"></span>
+                        <span class="reports-listen-icon" aria-hidden="true">
+                            <svg viewBox="0 0 24 24" focusable="false">
+                                <path fill="currentColor" d="M12 14a3 3 0 0 0 3-3V6a3 3 0 0 0-6 0v5a3 3 0 0 0 3 3Zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.9V21h2v-3.1A7 7 0 0 0 19 11h-2Z"/>
+                            </svg>
+                        </span>
+                        <span class="reports-listen-label">Escuchar</span>
                     </button>
                     <p class="reports-filter-hint" id="reports-dictate-status" role="status" aria-live="polite"></p>
                 </div>
@@ -390,8 +396,13 @@
                 <article class="list-card detail-card reports-ai-answer-card" aria-label="Respuesta del asistente">
                     <div class="reports-ai-answer-head">
                         <h2>Respuesta del asistente</h2>
-                        <button class="button button-inline button-quiet" type="button" id="reports-speak-answer" data-reports-speak hidden>
-                            Escuchar respuesta
+                        <button class="reports-speak-btn" type="button" id="reports-speak-answer" data-reports-speak hidden aria-pressed="false" aria-label="Escuchar la respuesta del asistente">
+                            <span class="reports-listen-icon" aria-hidden="true">
+                                <svg viewBox="0 0 24 24" focusable="false">
+                                    <path fill="currentColor" d="M3 10v4h4l5 5V5L7 10H3Zm13.5 2a4.5 4.5 0 0 0-2.5-4V16a4.5 4.5 0 0 0 2.5-4Zm-2.5-7.8v2.1a6.5 6.5 0 0 1 0 11.4v2.1a8.5 8.5 0 0 0 0-15.6Z"/>
+                                </svg>
+                            </span>
+                            <span class="reports-speak-label">Escuchar respuesta</span>
                         </button>
                     </div>
                     @if ($aiQuestion && $aiQuestion !== 'Resumen del reporte')
@@ -413,12 +424,19 @@
             var Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
             var voiceBox = document.querySelector('[data-reports-voice]');
             var dictateBtn = document.getElementById('reports-dictate');
+            var dictateLabel = dictateBtn ? dictateBtn.querySelector('.reports-listen-label') : null;
             var dictateStatus = document.getElementById('reports-dictate-status');
             var pregunta = document.getElementById('pregunta');
             var speakBtn = document.getElementById('reports-speak-answer');
+            var speakLabel = speakBtn ? speakBtn.querySelector('.reports-speak-label') : null;
             var answerPlain = document.getElementById('reports-answer-plain');
             var recognition = null;
             var listening = false;
+            var starting = false;
+            var baseText = '';
+            var finalTranscript = '';
+            var secure = window.isSecureContext === true;
+            var httpsHint = 'El dictado en Chrome del celular requiere HTTPS. Abrí https://' + location.host + location.pathname + location.search;
 
             function setDictateStatus(message) {
                 if (dictateStatus) {
@@ -426,76 +444,162 @@
                 }
             }
 
-            function stopListening() {
-                listening = false;
-                if (dictateBtn) {
-                    dictateBtn.setAttribute('aria-pressed', 'false');
-                    dictateBtn.textContent = 'Dictar';
-                    dictateBtn.classList.remove('is-listening');
+            function setListenUi(active) {
+                if (! dictateBtn || ! dictateLabel) {
+                    return;
                 }
-                if (recognition) {
-                    try { recognition.stop(); } catch (e) {}
-                }
+                dictateBtn.setAttribute('aria-pressed', active ? 'true' : 'false');
+                dictateBtn.classList.toggle('is-listening', active);
+                dictateLabel.textContent = active ? 'Escuchando…' : 'Escuchar';
+                dictateBtn.setAttribute('aria-label', active ? 'Detener escucha' : 'Escuchar y dictar la instrucción');
             }
 
-            if (Recognition && voiceBox && dictateBtn && pregunta && ! pregunta.disabled) {
-                voiceBox.hidden = false;
-                recognition = new Recognition();
-                recognition.lang = 'es-BO';
-                recognition.interimResults = true;
-                recognition.continuous = false;
-                recognition.maxAlternatives = 1;
+            function composeDictatedValue(interim) {
+                var spoken = (finalTranscript + (interim || '')).replace(/\s+/g, ' ').trim();
+                var prefix = baseText.replace(/\s+/g, ' ').trim();
+                if (prefix === '') {
+                    return spoken;
+                }
+                if (spoken === '') {
+                    return prefix;
+                }
+                return prefix + ' ' + spoken;
+            }
 
-                recognition.onstart = function () {
+            function bindRecognitionHandlers(instance) {
+                instance.onstart = function () {
                     listening = true;
-                    dictateBtn.setAttribute('aria-pressed', 'true');
-                    dictateBtn.textContent = 'Detener';
-                    dictateBtn.classList.add('is-listening');
-                    setDictateStatus('Escuchando… hable la instrucción del reporte.');
+                    starting = false;
+                    setListenUi(true);
+                    setDictateStatus('Escuchando… diga la instrucción del reporte.');
                 };
-                recognition.onerror = function (event) {
-                    stopListening();
+                instance.onerror = function (event) {
+                    starting = false;
+                    stopListening(false);
                     if (event.error === 'not-allowed') {
-                        setDictateStatus('No se pudo usar el micrófono. Revise el permiso del navegador.');
-                    } else if (event.error !== 'aborted' && event.error !== 'no-speech') {
+                        setDictateStatus(secure
+                            ? 'Chrome bloqueó el micrófono. En el candado del sitio, permití Micrófono y volvé a tocar Escuchar.'
+                            : httpsHint);
+                    } else if (event.error === 'service-not-allowed') {
+                        setDictateStatus(secure
+                            ? 'El servicio de dictado no está disponible en este momento. Probá de nuevo.'
+                            : httpsHint);
+                    } else if (event.error === 'network') {
+                        setDictateStatus('Sin conexión al servicio de dictado. Revisá la red e intentá otra vez.');
+                    } else if (event.error === 'no-speech') {
+                        setDictateStatus('No se escuchó audio. Tocá Escuchar e intentá otra vez.');
+                    } else if (event.error !== 'aborted') {
                         setDictateStatus('No se pudo completar el dictado. Intente de nuevo.');
                     } else {
                         setDictateStatus('');
                     }
                 };
-                recognition.onend = function () {
+                instance.onend = function () {
+                    starting = false;
                     if (listening) {
-                        stopListening();
-                        setDictateStatus('');
+                        stopListening(true);
                     }
                 };
-                recognition.onresult = function (event) {
-                    var transcript = '';
+                instance.onresult = function (event) {
+                    var interim = '';
                     for (var i = event.resultIndex; i < event.results.length; i++) {
-                        transcript += event.results[i][0].transcript;
+                        var chunk = event.results[i][0].transcript || '';
+                        if (event.results[i].isFinal) {
+                            finalTranscript += chunk;
+                        } else {
+                            interim += chunk;
+                        }
                     }
-                    transcript = transcript.trim();
-                    if (! transcript) {
-                        return;
-                    }
-                    var current = (pregunta.value || '').trim();
-                    pregunta.value = current === '' ? transcript : (current + ' ' + transcript);
+                    pregunta.value = composeDictatedValue(interim);
                     if (event.results[event.results.length - 1].isFinal) {
-                        setDictateStatus('Texto dictado listo. Puede generar o seguir dictando.');
+                        setDictateStatus('Texto listo. Puede generar o tocar Escuchar otra vez.');
                     }
                 };
+            }
 
-                dictateBtn.addEventListener('click', function () {
-                    if (listening) {
-                        stopListening();
-                        setDictateStatus('');
-                        return;
-                    }
+            function createRecognition() {
+                var instance = new Recognition();
+                instance.lang = 'es-ES';
+                instance.interimResults = true;
+                instance.continuous = false;
+                instance.maxAlternatives = 1;
+                bindRecognitionHandlers(instance);
+                return instance;
+            }
+
+            function stopListening(keepStatus) {
+                listening = false;
+                starting = false;
+                setListenUi(false);
+                if (! keepStatus) {
+                    setDictateStatus('');
+                } else if (dictateStatus && dictateStatus.textContent.indexOf('Escuchando') === 0) {
+                    setDictateStatus(finalTranscript.trim() === ''
+                        ? ''
+                        : 'Texto listo. Puede generar o tocar Escuchar otra vez.');
+                }
+                if (recognition) {
+                    try { recognition.abort(); } catch (e) {}
+                    try { recognition.stop(); } catch (e2) {}
+                }
+            }
+
+            function unlockMicrophone() {
+                if (! navigator.mediaDevices || ! navigator.mediaDevices.getUserMedia) {
+                    return Promise.resolve();
+                }
+                return navigator.mediaDevices.getUserMedia({ audio: true }).then(function (stream) {
+                    stream.getTracks().forEach(function (track) { track.stop(); });
+                });
+            }
+
+            function startListening() {
+                if (! secure) {
+                    setDictateStatus(httpsHint);
+                    return;
+                }
+                if (starting || listening) {
+                    return;
+                }
+                starting = true;
+                listening = false;
+                baseText = (pregunta.value || '').replace(/\s+/g, ' ').trim();
+                finalTranscript = '';
+                setDictateStatus('Preparando el micrófono…');
+                if (recognition) {
+                    try { recognition.abort(); } catch (e) {}
+                    try { recognition.stop(); } catch (e2) {}
+                }
+                recognition = createRecognition();
+                unlockMicrophone().then(function () {
                     try {
                         recognition.start();
                     } catch (e) {
-                        setDictateStatus('No se pudo iniciar el micrófono en este navegador.');
+                        starting = false;
+                        setListenUi(false);
+                        setDictateStatus('No se pudo iniciar el dictado. Tocá Escuchar otra vez.');
                     }
+                }).catch(function () {
+                    starting = false;
+                    setListenUi(false);
+                    setDictateStatus(secure
+                        ? 'No se pudo usar el micrófono. Revisá el permiso de Chrome para este sitio.'
+                        : httpsHint);
+                });
+            }
+
+            if (Recognition && voiceBox && dictateBtn && pregunta && ! pregunta.disabled) {
+                voiceBox.hidden = false;
+                recognition = createRecognition();
+                if (! secure) {
+                    setDictateStatus(httpsHint);
+                }
+                dictateBtn.addEventListener('click', function () {
+                    if (listening || starting) {
+                        stopListening(false);
+                        return;
+                    }
+                    startListening();
                 });
             }
 
@@ -506,8 +610,11 @@
                     if (speaking) {
                         window.speechSynthesis.cancel();
                         speaking = false;
-                        speakBtn.textContent = 'Escuchar respuesta';
+                        if (speakLabel) {
+                            speakLabel.textContent = 'Escuchar respuesta';
+                        }
                         speakBtn.setAttribute('aria-pressed', 'false');
+                        speakBtn.classList.remove('is-speaking');
                         return;
                     }
                     var text = (answerPlain.textContent || '').trim();
@@ -516,20 +623,29 @@
                     }
                     window.speechSynthesis.cancel();
                     var utterance = new SpeechSynthesisUtterance(text);
-                    utterance.lang = 'es-BO';
+                    utterance.lang = 'es-ES';
                     utterance.onend = function () {
                         speaking = false;
-                        speakBtn.textContent = 'Escuchar respuesta';
+                        if (speakLabel) {
+                            speakLabel.textContent = 'Escuchar respuesta';
+                        }
                         speakBtn.setAttribute('aria-pressed', 'false');
+                        speakBtn.classList.remove('is-speaking');
                     };
                     utterance.onerror = function () {
                         speaking = false;
-                        speakBtn.textContent = 'Escuchar respuesta';
+                        if (speakLabel) {
+                            speakLabel.textContent = 'Escuchar respuesta';
+                        }
                         speakBtn.setAttribute('aria-pressed', 'false');
+                        speakBtn.classList.remove('is-speaking');
                     };
                     speaking = true;
-                    speakBtn.textContent = 'Detener audio';
+                    if (speakLabel) {
+                        speakLabel.textContent = 'Detener audio';
+                    }
                     speakBtn.setAttribute('aria-pressed', 'true');
+                    speakBtn.classList.add('is-speaking');
                     window.speechSynthesis.speak(utterance);
                 });
             }

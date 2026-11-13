@@ -72,8 +72,12 @@ class ReportScreenTest extends TestCase
             ->assertSee('id="asistente-reporte"', false)
             ->assertSee('id="pregunta"', false)
             ->assertSee('id="reports-dictate"', false)
-            ->assertSee('Dictar')
+            ->assertSee('reports-listen-btn', false)
+            ->assertSee('Escuchar')
             ->assertSee('data-reports-voice', false)
+            ->assertSee('isSecureContext', false)
+            ->assertSee('getUserMedia', false)
+            ->assertSee('finalTranscript', false)
             ->assertSee('Filtros manuales')
             ->assertDontSee('Ir al asistente IA')
             ->assertDontSee('Primero genere un reporte para habilitar las preguntas.');
