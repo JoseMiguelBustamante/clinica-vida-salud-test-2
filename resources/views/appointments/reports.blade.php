@@ -48,7 +48,7 @@
 
         <article class="list-card detail-card reports-ai-card" id="asistente-reporte" aria-labelledby="assistant-title">
             <h2 id="assistant-title">Asistente del reporte</h2>
-            <p class="reports-filter-hint" id="assistant-help">Escriba qué reporte necesita y la fecha (AAAA-MM-DD). Si falta un dato, el asistente se lo pide.</p>
+            <p class="reports-filter-hint" id="assistant-help">Escriba o dicte qué reporte necesita y la fecha (AAAA-MM-DD). Si falta un dato, el asistente se lo pide.</p>
             @if (! ($aiConfigured ?? false))
                 <p class="form-status" role="status">El asistente no está configurado. En Dokploy defina <code>OPENAI_API_KEY</code>, <code>OPENAI_BASE_URL</code> y <code>OPENAI_MODEL</code> del proveedor que use (API compatible; la suscripción del chat no alcanza).</p>
             @endif
@@ -69,7 +69,13 @@
                 @endforeach
                 <div class="field">
                     <label for="pregunta">Instrucción o pregunta</label>
-                    <textarea id="pregunta" name="pregunta" rows="3" maxlength="500" aria-describedby="assistant-help" placeholder="Ejemplo: Agenda diaria de cada médico para el 2026-11-12" @disabled(! ($aiConfigured ?? false))>{{ old('pregunta', $aiQuestion && $aiQuestion !== 'Resumen del reporte' ? $aiQuestion : '') }}</textarea>
+                    <textarea id="pregunta" name="pregunta" rows="3" maxlength="500" aria-describedby="assistant-help reports-dictate-status" placeholder="Ejemplo: Agenda diaria de cada médico para el 2026-11-12" @disabled(! ($aiConfigured ?? false))>{{ old('pregunta', $aiQuestion && $aiQuestion !== 'Resumen del reporte' ? $aiQuestion : '') }}</textarea>
+                </div>
+                <div class="reports-ai-voice" data-reports-voice hidden>
+                    <button class="button button-inline button-quiet" type="button" id="reports-dictate" @disabled(! ($aiConfigured ?? false)) aria-pressed="false">
+                        Dictar
+                    </button>
+                    <p class="reports-filter-hint" id="reports-dictate-status" role="status" aria-live="polite"></p>
                 </div>
                 <div class="reports-ai-actions">
                     <button class="button" type="submit" name="accion" value="resumir" @disabled(! ($aiConfigured ?? false))>Generar reporte</button>
@@ -382,11 +388,17 @@
 
             @if (! empty($aiAnswer))
                 <article class="list-card detail-card reports-ai-answer-card" aria-label="Respuesta del asistente">
-                    <h2>Respuesta del asistente</h2>
+                    <div class="reports-ai-answer-head">
+                        <h2>Respuesta del asistente</h2>
+                        <button class="button button-inline button-quiet" type="button" id="reports-speak-answer" data-reports-speak hidden>
+                            Escuchar respuesta
+                        </button>
+                    </div>
                     @if ($aiQuestion && $aiQuestion !== 'Resumen del reporte')
                         <p class="reports-kpi-label">{{ $aiQuestion }}</p>
                     @endif
                     <div class="reports-ai-answer-body">{!! \Illuminate\Support\Str::markdown($aiAnswer) !!}</div>
+                    <p class="visually-hidden" id="reports-answer-plain">{{ $aiAnswer }}</p>
                 </article>
             @endif
 
@@ -396,4 +408,131 @@
             <p class="list-meta">Complete el filtro pendiente (médico, especialidad o estado) o pídalo al asistente.</p>
         @endif
     </section>
+    <script>
+        (function () {
+            var Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+            var voiceBox = document.querySelector('[data-reports-voice]');
+            var dictateBtn = document.getElementById('reports-dictate');
+            var dictateStatus = document.getElementById('reports-dictate-status');
+            var pregunta = document.getElementById('pregunta');
+            var speakBtn = document.getElementById('reports-speak-answer');
+            var answerPlain = document.getElementById('reports-answer-plain');
+            var recognition = null;
+            var listening = false;
+
+            function setDictateStatus(message) {
+                if (dictateStatus) {
+                    dictateStatus.textContent = message || '';
+                }
+            }
+
+            function stopListening() {
+                listening = false;
+                if (dictateBtn) {
+                    dictateBtn.setAttribute('aria-pressed', 'false');
+                    dictateBtn.textContent = 'Dictar';
+                    dictateBtn.classList.remove('is-listening');
+                }
+                if (recognition) {
+                    try { recognition.stop(); } catch (e) {}
+                }
+            }
+
+            if (Recognition && voiceBox && dictateBtn && pregunta && ! pregunta.disabled) {
+                voiceBox.hidden = false;
+                recognition = new Recognition();
+                recognition.lang = 'es-BO';
+                recognition.interimResults = true;
+                recognition.continuous = false;
+                recognition.maxAlternatives = 1;
+
+                recognition.onstart = function () {
+                    listening = true;
+                    dictateBtn.setAttribute('aria-pressed', 'true');
+                    dictateBtn.textContent = 'Detener';
+                    dictateBtn.classList.add('is-listening');
+                    setDictateStatus('Escuchando… hable la instrucción del reporte.');
+                };
+                recognition.onerror = function (event) {
+                    stopListening();
+                    if (event.error === 'not-allowed') {
+                        setDictateStatus('No se pudo usar el micrófono. Revise el permiso del navegador.');
+                    } else if (event.error !== 'aborted' && event.error !== 'no-speech') {
+                        setDictateStatus('No se pudo completar el dictado. Intente de nuevo.');
+                    } else {
+                        setDictateStatus('');
+                    }
+                };
+                recognition.onend = function () {
+                    if (listening) {
+                        stopListening();
+                        setDictateStatus('');
+                    }
+                };
+                recognition.onresult = function (event) {
+                    var transcript = '';
+                    for (var i = event.resultIndex; i < event.results.length; i++) {
+                        transcript += event.results[i][0].transcript;
+                    }
+                    transcript = transcript.trim();
+                    if (! transcript) {
+                        return;
+                    }
+                    var current = (pregunta.value || '').trim();
+                    pregunta.value = current === '' ? transcript : (current + ' ' + transcript);
+                    if (event.results[event.results.length - 1].isFinal) {
+                        setDictateStatus('Texto dictado listo. Puede generar o seguir dictando.');
+                    }
+                };
+
+                dictateBtn.addEventListener('click', function () {
+                    if (listening) {
+                        stopListening();
+                        setDictateStatus('');
+                        return;
+                    }
+                    try {
+                        recognition.start();
+                    } catch (e) {
+                        setDictateStatus('No se pudo iniciar el micrófono en este navegador.');
+                    }
+                });
+            }
+
+            if (speakBtn && answerPlain && 'speechSynthesis' in window) {
+                speakBtn.hidden = false;
+                var speaking = false;
+                speakBtn.addEventListener('click', function () {
+                    if (speaking) {
+                        window.speechSynthesis.cancel();
+                        speaking = false;
+                        speakBtn.textContent = 'Escuchar respuesta';
+                        speakBtn.setAttribute('aria-pressed', 'false');
+                        return;
+                    }
+                    var text = (answerPlain.textContent || '').trim();
+                    if (text === '') {
+                        return;
+                    }
+                    window.speechSynthesis.cancel();
+                    var utterance = new SpeechSynthesisUtterance(text);
+                    utterance.lang = 'es-BO';
+                    utterance.onend = function () {
+                        speaking = false;
+                        speakBtn.textContent = 'Escuchar respuesta';
+                        speakBtn.setAttribute('aria-pressed', 'false');
+                    };
+                    utterance.onerror = function () {
+                        speaking = false;
+                        speakBtn.textContent = 'Escuchar respuesta';
+                        speakBtn.setAttribute('aria-pressed', 'false');
+                    };
+                    speaking = true;
+                    speakBtn.textContent = 'Detener audio';
+                    speakBtn.setAttribute('aria-pressed', 'true');
+                    window.speechSynthesis.speak(utterance);
+                });
+            }
+        })();
+    </script>
 @endsection

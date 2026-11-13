@@ -56,8 +56,11 @@ On mobile, expand **Menú de navegación** to access the existing authorized lin
 desktop navigation stays expanded. Report filters stack in one column on mobile.
 The assistant is the primary block at the top of the page; manual filters stay
 collapsed unless already in use. AI answers render after the result table.
-Submitting requires the existing report permission, CSRF token and provider
-configuration. Verify AI answers against the report.
+Compatible browsers can dictate the instruction into the assistant field
+(Speech Recognition) and play back the answer (speech synthesis); mic permission
+is required and unsupported browsers hide those controls. Submitting requires
+the existing report permission, CSRF token and provider configuration. Verify AI
+answers against the report.
 
 CU21 plans `recordatorio_cita` after a successful booking when the patient
 already had reminders enabled with a verified email. Confirmation is not the

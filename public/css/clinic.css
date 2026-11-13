@@ -2194,12 +2194,33 @@ a.code-link:hover {
     width: 100%;
 }
 
+.reports-ai-voice {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.55rem 0.85rem;
+}
+
+.reports-ai-voice .button.is-listening {
+    border-color: #b42318;
+    color: #b42318;
+}
+
 .reports-ai-answer-card {
     margin-top: 1rem;
 }
 
-.reports-ai-answer-card h2 {
-    margin-top: 0;
+.reports-ai-answer-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.55rem 0.85rem;
+}
+
+.reports-ai-answer-card h2,
+.reports-ai-answer-head h2 {
+    margin: 0;
 }
 
 .reports-ai-answer-body {
