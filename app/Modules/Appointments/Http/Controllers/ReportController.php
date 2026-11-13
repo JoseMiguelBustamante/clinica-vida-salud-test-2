@@ -112,7 +112,7 @@ final class ReportController
 
             // After a report exists, voice defaults to "preguntar". A new generate
             // request must re-enter planning instead of answering the previous sheet.
-            $wantsNewReport = $this->assistant->isNewReportRequest($instruction);
+            $wantsNewReport = $this->assistant->isNewReportRequest($instruction, ReportDateDefaults::today());
             if ($action === 'preguntar' && $wantsNewReport) {
                 $action = 'resumir';
             }

@@ -398,7 +398,7 @@ final class ReportAiService
     /**
      * True when the user asks to generate/change a report instead of questioning the current sheet.
      */
-    public function isNewReportRequest(string $instruction): bool
+    public function isNewReportRequest(string $instruction, ?string $today = null): bool
     {
         $normalized = mb_strtolower(trim($instruction));
         if ($normalized === '') {
@@ -409,7 +409,15 @@ final class ReportAiService
             return true;
         }
 
-        return preg_match('/\b(nuevo reporte|otra?\s+reporte|otro reporte|gener[aeá].*\breporte|arm[aeá].*\breporte|hac[eé].*\breporte|quiero\s+.*\breporte|necesito\s+.*\breporte|dame\s+.*\breporte)\b/u', $normalized) === 1;
+        if (preg_match('/\b(nuevo reporte|otra?\s+reporte|otro reporte|gener[aeá].*\breporte|arm[aeá].*\breporte|hac[eé].*\breporte|quiero\s+.*\breporte|necesito\s+.*\breporte|dame\s+.*\breporte)\b/u', $normalized) === 1) {
+            return true;
+        }
+
+        // Phrases like "atendidas este mes" must regenerate, not answer the prior sheet.
+        $day = $today ?? ReportDateDefaults::today();
+        $plan = $this->deterministicPlan($instruction, $day);
+
+        return $plan !== null && is_string($plan['tipo'] ?? null) && $plan['tipo'] !== '';
     }
 
     /**

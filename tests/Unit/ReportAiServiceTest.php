@@ -328,6 +328,8 @@ class ReportAiServiceTest extends TestCase
 
         $this->assertTrue($assistant->isNewReportRequest('generame un reporte'));
         $this->assertTrue($assistant->isNewReportRequest('Necesito ayuda para generar un reporte.'));
+        $this->assertTrue($assistant->isNewReportRequest('atendidas este mes', '2026-11-13'));
+        $this->assertTrue($assistant->isNewReportRequest('citas atendidas de este mes', '2026-11-13'));
         $this->assertFalse($assistant->isNewReportRequest('¿cuántas canceladas hubo?'));
     }
 

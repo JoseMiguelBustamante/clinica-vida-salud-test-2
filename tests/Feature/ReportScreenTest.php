@@ -708,6 +708,67 @@ class ReportScreenTest extends TestCase
         $this->assertSame([], $this->app['db']->getConnections());
     }
 
+    public function test_ask_mode_regenerates_when_voice_requests_attended_this_month(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-11-13'));
+        config([
+            'openai.api_key' => 'test-openai-key',
+            'openai.model' => 'gpt-4o-mini',
+            'openai.base_url' => 'https://api.openai.com/v1',
+        ]);
+        Http::fake([
+            'api.openai.com/*' => Http::response([
+                'choices' => [[
+                    'message' => ['content' => 'Listado de citas atendidas del mes.'],
+                ]],
+            ], 200),
+        ]);
+
+        $this->authorizeReports(2);
+        $this->mockCatalogLookups(2);
+        $appointments = $this->app->make(AppointmentRepository::class);
+        $appointments->shouldReceive('getAppointmentStatusCountsInRange')->never();
+        $appointments->shouldReceive('getAppointmentsInRange')
+            ->twice()
+            ->andReturn(collect([
+                (object) [
+                    'inicio' => '2026-11-05T14:00:00+00:00',
+                    'fin' => '2026-11-05T14:30:00+00:00',
+                    'codigo' => 'CVS2-261105-11400',
+                    'paciente_apellidos' => 'Gutiérrez Loza',
+                    'paciente_nombres' => 'Marisol',
+                    'medico_apellidos' => 'Mendoza Quispe',
+                    'medico_nombres' => 'Carla',
+                    'especialidad_nombre' => 'Medicina general',
+                    'estado' => 'Atendida',
+                ],
+            ]));
+
+        $this->withSession([Auth::guard('web')->getName() => 17]);
+        $response = $this->from('/reportes?tipo=agenda_diaria&fecha=2026-11-12&generar=1')
+            ->post('/reportes/asistente', [
+                'tipo' => 'agenda_diaria',
+                'fecha' => '2026-11-12',
+                'generar' => '1',
+                'accion' => 'preguntar',
+                'pregunta' => 'atendidas este mes',
+            ]);
+
+        $response->assertRedirect();
+        $this->followRedirects($response)
+            ->assertOk()
+            ->assertSee('Citas por estado')
+            ->assertSee('Atendida')
+            ->assertSee('2026-11-01')
+            ->assertSee('2026-11-13')
+            ->assertSee('CVS2-261105-11400')
+            ->assertSee('Listado de citas atendidas del mes.')
+            ->assertSee('name="tipo" value="citas_estado"', false)
+            ->assertSee('name="estado" value="Atendida"', false);
+        $this->assertSame([], $this->app['db']->getConnections());
+        Carbon::setTestNow();
+    }
+
     private function authorizeReports(int $times = 1, bool $fullNavigation = false): void
     {
         $user = (new User)->forceFill(['id_usuario' => 17, 'activo' => true, 'id_rol' => 1]);
