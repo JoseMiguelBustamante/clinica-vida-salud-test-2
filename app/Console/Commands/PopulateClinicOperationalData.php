@@ -28,9 +28,11 @@ class PopulateClinicOperationalData extends Command
         Requires an already migrated PostgreSQL database and an existing active Administrador.
         Creates missing specialties, physicians (MP- licenses), Mon–Sat 08:00–18:00 hours for
         every active bookable physician (so November availability works), patients with
-        ordinary Bolivian-style CI values, and about ninety 2026 appointments across
-        Atendida, Cancelada, Inasistencia, Confirmada and Programada. Codes use the CVS-
-        prefix. Idempotent: existing CI, professional license or appointment code rows are
+        ordinary Bolivian-style CI values (~40 patients), about ninety year-to-date 2026
+        appointments (CVS- codes), plus a dense November detail batch (CVS2- codes across
+        Mon–Sat through late November, several slots per physician) so status/list
+        reports for this month have many Atendida, Cancelada and Inasistencia rows.
+        Idempotent: existing CI, professional license or appointment code rows are
         skipped. This is not db:seed, not demo data, and does not create login accounts or
         passwords. Confirmation is required unless --force is passed. --no-interaction
         without --force refuses before database access.
@@ -81,12 +83,14 @@ class PopulateClinicOperationalData extends Command
             }
             $patientIds = $this->ensurePatients();
             $appointmentCount = $this->ensureAppointments($physicianIds, $specialtyIds, $patientIds);
+            $novemberCount = $this->ensureNovemberDetailAppointments($physicianIds, $specialtyIds, $patientIds);
 
             $this->info('Operational clinic data is available.');
             $this->line('Physicians with weekday hours: '.count($physicianIds));
             $this->line('Schedules created in ensure pass: '.$scheduleCount);
             $this->line('Patients ensured: '.count($patientIds));
-            $this->line('Appointments inserted this run: '.$appointmentCount);
+            $this->line('Appointments inserted this run: '.($appointmentCount + $novemberCount));
+            $this->line('November detail appointments inserted: '.$novemberCount);
         } catch (Throwable $exception) {
             Log::error('[PopulateClinicOperationalData] '.$exception::class);
             $this->error('Unable to load clinic data; stop and contact the operator.');
@@ -230,6 +234,25 @@ class PopulateClinicOperationalData extends Command
             ['ci' => '8445678', 'nombres' => 'Fernando', 'apellidos' => 'Quispe Yujra', 'fecha_nacimiento' => '1991-05-03', 'sexo' => 'Masculino', 'telefono' => '71001122', 'correo_contacto' => 'fernando.quispe@correo.bo', 'direccion' => 'Senkata, El Alto'],
             ['ci' => '8556789', 'nombres' => 'Mónica', 'apellidos' => 'Delgado Ríos', 'fecha_nacimiento' => '1974-11-16', 'sexo' => 'Femenino', 'telefono' => '71112233', 'correo_contacto' => 'monica.delgado@correo.bo', 'direccion' => 'Alto Obrajes, La Paz'],
             ['ci' => '8667890', 'nombres' => 'Mauricio', 'apellidos' => 'Vargas Choque', 'fecha_nacimiento' => '1986-07-25', 'sexo' => 'Masculino', 'telefono' => '71223344', 'correo_contacto' => 'mauricio.vargas@correo.bo', 'direccion' => 'Pampahasi, La Paz'],
+            ['ci' => '8778901', 'nombres' => 'Elena', 'apellidos' => 'Paredes Quispe', 'fecha_nacimiento' => '1993-04-02', 'sexo' => 'Femenino', 'telefono' => '71334455', 'correo_contacto' => 'elena.paredes@correo.bo', 'direccion' => 'Sopocachi, Calle Belisario 410, La Paz'],
+            ['ci' => '8889012', 'nombres' => 'Hugo', 'apellidos' => 'Mamani Cornejo', 'fecha_nacimiento' => '1968-09-14', 'sexo' => 'Masculino', 'telefono' => '71445566', 'correo_contacto' => 'hugo.mamani@correo.bo', 'direccion' => 'Villa Adela, El Alto'],
+            ['ci' => '8990123', 'nombres' => 'Claudia', 'apellidos' => 'Rivera Soto', 'fecha_nacimiento' => '1989-12-28', 'sexo' => 'Femenino', 'telefono' => '71556677', 'correo_contacto' => 'claudia.rivera@correo.bo', 'direccion' => 'Calacoto, Calle 12, La Paz'],
+            ['ci' => '8101234', 'nombres' => 'Diego', 'apellidos' => 'Flores Aguilar', 'fecha_nacimiento' => '1975-06-06', 'sexo' => 'Masculino', 'telefono' => '71667788', 'correo_contacto' => 'diego.flores@correo.bo', 'direccion' => 'Miraflores, Av. Saavedra 300, La Paz'],
+            ['ci' => '8212345', 'nombres' => 'Paola', 'apellidos' => 'Choque Lima', 'fecha_nacimiento' => '2000-01-19', 'sexo' => 'Femenino', 'telefono' => '71778899', 'correo_contacto' => 'paola.choque@correo.bo', 'direccion' => 'Achumani, Calle 20, La Paz'],
+            ['ci' => '8323456', 'nombres' => 'Ramiro', 'apellidos' => 'Salazar Nina', 'fecha_nacimiento' => '1981-08-23', 'sexo' => 'Masculino', 'telefono' => '71889900', 'correo_contacto' => 'ramiro.salazar@correo.bo', 'direccion' => 'San Miguel, La Paz'],
+            ['ci' => '8434567', 'nombres' => 'Jimena', 'apellidos' => 'Torrez Apaza', 'fecha_nacimiento' => '1997-03-11', 'sexo' => 'Femenino', 'telefono' => '71990011', 'correo_contacto' => 'jimena.torrez@correo.bo', 'direccion' => 'Villa Copacabana, La Paz'],
+            ['ci' => '8545678', 'nombres' => 'Álvaro', 'apellidos' => 'Gutiérrez Peña', 'fecha_nacimiento' => '1963-11-30', 'sexo' => 'Masculino', 'telefono' => '72001122', 'correo_contacto' => 'alvaro.gutierrez@correo.bo', 'direccion' => 'Obrajes, Calle 10, La Paz'],
+            ['ci' => '8656789', 'nombres' => 'Natalia', 'apellidos' => 'Quisbert Rojas', 'fecha_nacimiento' => '1984-05-17', 'sexo' => 'Femenino', 'telefono' => '72112233', 'correo_contacto' => 'natalia.quisbert@correo.bo', 'direccion' => 'El Alto, Ciudad Satélite'],
+            ['ci' => '8767890', 'nombres' => 'Bruno', 'apellidos' => 'Arce Mamani', 'fecha_nacimiento' => '1995-10-08', 'sexo' => 'Masculino', 'telefono' => '72223344', 'correo_contacto' => 'bruno.arce@correo.bo', 'direccion' => 'Irpavi, Calle 5, La Paz'],
+            ['ci' => '8878901', 'nombres' => 'Lorena', 'apellidos' => 'Pinto Huanca', 'fecha_nacimiento' => '1972-02-25', 'sexo' => 'Femenino', 'telefono' => '72334455', 'correo_contacto' => 'lorena.pinto@correo.bo', 'direccion' => 'Max Paredes 980, La Paz'],
+            ['ci' => '8989012', 'nombres' => 'Iván', 'apellidos' => 'Cruz Delgado', 'fecha_nacimiento' => '1988-07-01', 'sexo' => 'Masculino', 'telefono' => '72445566', 'correo_contacto' => 'ivan.cruz@correo.bo', 'direccion' => 'Villa Fátima, La Paz'],
+            ['ci' => '8090123', 'nombres' => 'Camila', 'apellidos' => 'Yujra Mercado', 'fecha_nacimiento' => '1999-09-09', 'sexo' => 'Femenino', 'telefono' => '72556677', 'correo_contacto' => 'camila.yujra@correo.bo', 'direccion' => 'Alto Obrajes, La Paz'],
+            ['ci' => '8201234', 'nombres' => 'Esteban', 'apellidos' => 'Loza Vargas', 'fecha_nacimiento' => '1978-12-21', 'sexo' => 'Masculino', 'telefono' => '72667788', 'correo_contacto' => 'esteban.loza@correo.bo', 'direccion' => 'Tembladerani, La Paz'],
+            ['ci' => '8312345', 'nombres' => 'Rebeca', 'apellidos' => 'Nina Zelada', 'fecha_nacimiento' => '1991-04-13', 'sexo' => 'Femenino', 'telefono' => '72778899', 'correo_contacto' => 'rebeca.nina@correo.bo', 'direccion' => 'Pampahasi Alto, La Paz'],
+            ['ci' => '8423456', 'nombres' => 'Martín', 'apellidos' => 'Ballivián Choque', 'fecha_nacimiento' => '1966-08-04', 'sexo' => 'Masculino', 'telefono' => '72889900', 'correo_contacto' => 'martin.ballivian@correo.bo', 'direccion' => 'Zona Sur, Calle 9, La Paz'],
+            ['ci' => '8534567', 'nombres' => 'Sofía', 'apellidos' => 'Aliaga Flores', 'fecha_nacimiento' => '2002-06-15', 'sexo' => 'Femenino', 'telefono' => '72990011', 'correo_contacto' => 'sofia.aliaga@correo.bo', 'direccion' => 'Villa Armonía, El Alto'],
+            ['ci' => '8645678', 'nombres' => 'Tomás', 'apellidos' => 'Ríos Condori', 'fecha_nacimiento' => '1980-01-27', 'sexo' => 'Masculino', 'telefono' => '73001122', 'correo_contacto' => 'tomas.rios@correo.bo', 'direccion' => 'Senkata, El Alto'],
+            ['ci' => '8756789', 'nombres' => 'Valentina', 'apellidos' => 'Ortiz Llanos', 'fecha_nacimiento' => '1994-11-03', 'sexo' => 'Femenino', 'telefono' => '73112233', 'correo_contacto' => 'valentina.ortiz@correo.bo', 'direccion' => 'San Pedro, Calle Yanacachi 55, La Paz'],
         ];
 
         $ids = [];
@@ -387,6 +410,120 @@ class PopulateClinicOperationalData extends Command
                 $hourCursor = 8;
                 $day->addDay();
             }
+        }
+
+        return $inserted;
+    }
+
+    /**
+     * Dense Mon–Sat November slots so detailed status reports for “este mes” have rows.
+     *
+     * @param  list<int>  $physicianIds
+     * @param  array<string, int>  $specialtyIds
+     * @param  list<int>  $patientIds
+     */
+    private function ensureNovemberDetailAppointments(array $physicianIds, array $specialtyIds, array $patientIds): int
+    {
+        if ($physicianIds === [] || $patientIds === []) {
+            return 0;
+        }
+
+        $specialtyByPhysician = [
+            $physicianIds[0] => $specialtyIds['Medicina general'],
+            $physicianIds[1] => $specialtyIds['Pediatría'],
+            $physicianIds[2] => $specialtyIds['Ginecología'],
+            $physicianIds[3] => $specialtyIds['Cardiología'],
+        ];
+
+        $statusCycle = [
+            'Atendida', 'Atendida', 'Atendida', 'Atendida',
+            'Cancelada', 'Atendida', 'Inasistencia', 'Atendida',
+            'Confirmada', 'Atendida', 'Cancelada', 'Programada',
+        ];
+        $motivos = [
+            'Control de presión arterial',
+            'Control pediátrico',
+            'Consulta ginecológica de rutina',
+            'Dolor precordial leve',
+            'Control de diabetes',
+            'Chequeo anual',
+            'Seguimiento de tratamiento',
+            'Resfriado prolongado',
+        ];
+
+        $inserted = 0;
+        $day = Carbon::create(2026, 11, 2, 0, 0, 0, 'UTC');
+        $end = Carbon::create(2026, 11, 28, 0, 0, 0, 'UTC');
+        $slot = 0;
+
+        while ($day->lte($end)) {
+            if ($day->isoWeekday() === 7) {
+                $day->addDay();
+
+                continue;
+            }
+
+            foreach ($physicianIds as $physicianOffset => $physicianId) {
+                foreach ([8, 9, 10, 11, 14, 15, 16] as $hour) {
+                    $patientId = $patientIds[$slot % count($patientIds)];
+                    $specialtyId = $specialtyByPhysician[$physicianId];
+                    $minute = ($slot + $physicianOffset + $hour) % 2 === 0 ? 0 : 30;
+                    $start = $day->copy()->setTime($hour, $minute, 0);
+                    $fin = $start->copy()->addMinutes(30);
+                    $code = sprintf('CVS2-%s-%d%02d%02d', $start->format('ymd'), $physicianOffset + 1, $hour, $minute);
+                    $estado = $statusCycle[$slot % count($statusCycle)];
+
+                    if (DB::table('cita_medica')->where('codigo', $code)->exists()) {
+                        $slot++;
+
+                        continue;
+                    }
+
+                    $overlap = DB::table('cita_medica')
+                        ->where('id_medico', $physicianId)
+                        ->where('inicio', '<', $fin->toIso8601String())
+                        ->where('fin', '>', $start->toIso8601String())
+                        ->whereNotIn('estado', ['Cancelada'])
+                        ->exists();
+                    if ($overlap) {
+                        $slot++;
+
+                        continue;
+                    }
+
+                    $createdAt = $start->copy()->subDays(1)->toIso8601String();
+                    $appointmentId = (int) DB::table('cita_medica')->insertGetId([
+                        'codigo' => $code,
+                        'inicio' => $start->toIso8601String(),
+                        'fin' => $fin->toIso8601String(),
+                        'motivo_consulta' => $motivos[$slot % count($motivos)],
+                        'modalidad' => 'Presencial',
+                        'estado' => $estado,
+                        'fecha_creacion' => $createdAt,
+                        'fecha_hora_llegada' => in_array($estado, ['Atendida', 'Confirmada'], true)
+                            ? $start->copy()->subMinutes(8)->toIso8601String()
+                            : null,
+                        'fecha_hora_registro_atencion' => $estado === 'Atendida' ? $fin->toIso8601String() : null,
+                        'motivo_cancelacion' => $estado === 'Cancelada'
+                            ? 'El paciente reprogramó por motivos personales.'
+                            : null,
+                        'id_paciente' => $patientId,
+                        'id_medico' => $physicianId,
+                        'id_especialidad' => $specialtyId,
+                    ], 'id_cita');
+                    DB::table('evento_cita')->insert([
+                        'tipo' => 'Programacion',
+                        'fecha_hora' => $createdAt,
+                        'motivo' => $motivos[$slot % count($motivos)],
+                        'id_cita' => $appointmentId,
+                        'id_usuario' => $this->activeAdministratorId(),
+                    ]);
+                    $inserted++;
+                    $slot++;
+                }
+            }
+
+            $day->addDay();
         }
 
         return $inserted;

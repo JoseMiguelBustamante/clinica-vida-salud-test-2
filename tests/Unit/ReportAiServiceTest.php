@@ -271,6 +271,29 @@ class ReportAiServiceTest extends TestCase
         Http::assertNothingSent();
     }
 
+    public function test_plan_resolves_citas_atendidas_este_mes_as_status_detail(): void
+    {
+        config([
+            'openai.api_key' => '',
+            'openai.model' => '',
+            'openai.base_url' => '',
+        ]);
+        Http::fake();
+
+        $plan = (new ReportAiService)->planReportInstruction(
+            'citas atendidas de este mes',
+            '2026-11-13',
+        );
+
+        $this->assertSame('ready', $plan['status']);
+        $this->assertSame('citas_estado', $plan['tipo']);
+        $this->assertSame('Atendida', $plan['estado']);
+        $this->assertSame('2026-11-01', $plan['fecha_inicio']);
+        $this->assertSame('2026-11-13', $plan['fecha_fin']);
+        $this->assertNull($plan['fecha']);
+        Http::assertNothingSent();
+    }
+
     public function test_plan_asks_when_generate_request_is_vague(): void
     {
         config([

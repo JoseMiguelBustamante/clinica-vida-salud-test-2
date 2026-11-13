@@ -186,6 +186,7 @@ final class ReportAiService
             'este mes/el mes => tipo=totales_periodo, fecha_inicio=primer día del mes, fecha_fin=Hoy;',
             'este año/el año => tipo=totales_periodo, fecha_inicio=1 de enero del año de Hoy, fecha_fin=Hoy;',
             'todas las citas / todo el histórico / histórico => tipo=totales_periodo, fecha_inicio='.ReportDateDefaults::historyStart($today).', fecha_fin=Hoy.',
+            'Excepción: si pide citas de UN solo estado (atendidas, canceladas, inasistencias, confirmadas o programadas) con semana/mes/año, usa tipo=citas_estado con ese estado y el rango; no uses totales_periodo ni citas_fecha.',
             'Nunca uses citas_fecha ni agenda_diaria para semana, mes, año o histórico: esos tipos son de un solo día.',
             'Si el usuario solo pide generar un reporte (o saluda) sin decir tipo y período, status=clarify. Nunca inventes tipo ni fechas por defecto.',
             'Si falta el período, status=clarify y questions en español ofreciendo opciones naturales (hoy, esta semana, este mes, este año, histórico o una fecha), sin exigir el formato YYYY-MM-DD al usuario.',
@@ -284,8 +285,27 @@ final class ReportAiService
             return $base;
         }
 
-        if (str_contains($normalized, 'totales') || (str_contains($normalized, 'atendidas') && str_contains($normalized, 'canceladas'))) {
+        $mentionsAttended = preg_match('/\batendid/u', $normalized) === 1;
+        $mentionsCancelled = preg_match('/\bcancelad/u', $normalized) === 1;
+        if (str_contains($normalized, 'totales') || ($mentionsAttended && $mentionsCancelled)) {
             $base['tipo'] = ReportService::TYPE_PERIOD_TOTALS;
+            $base['fecha_inicio'] = $dates[0] ?? null;
+            $base['fecha_fin'] = $dates[1] ?? ($dates[0] ?? null);
+
+            return $base;
+        }
+
+        if (str_contains($normalized, 'citas del ') || str_contains($normalized, 'citas para el ') || str_contains($normalized, 'citas programadas')) {
+            $base['tipo'] = ReportService::TYPE_APPOINTMENTS_ON_DATE;
+            $base['fecha'] = $dates[0] ?? null;
+
+            return $base;
+        }
+
+        $singleStatus = $this->detectSingleAppointmentStatus($normalized);
+        if ($singleStatus !== null) {
+            $base['tipo'] = ReportService::TYPE_APPOINTMENTS_BY_STATUS;
+            $base['estado'] = $singleStatus;
             $base['fecha_inicio'] = $dates[0] ?? null;
             $base['fecha_fin'] = $dates[1] ?? ($dates[0] ?? null);
 
@@ -298,30 +318,6 @@ final class ReportAiService
                 $base['fecha_inicio'] = $dates[0] ?? null;
                 $base['fecha_fin'] = $dates[1] ?? ($dates[0] ?? null);
             }
-
-            return $base;
-        }
-
-        foreach (['programada', 'confirmada', 'atendida', 'cancelada', 'inasistencia'] as $estado) {
-            if (str_contains($normalized, 'estado '.$estado) || str_contains($normalized, 'citas en estado '.$estado) || str_contains($normalized, 'citas '.$estado)) {
-                $base['tipo'] = ReportService::TYPE_APPOINTMENTS_BY_STATUS;
-                $base['estado'] = match ($estado) {
-                    'programada' => 'Programada',
-                    'confirmada' => 'Confirmada',
-                    'atendida' => 'Atendida',
-                    'cancelada' => 'Cancelada',
-                    'inasistencia' => 'Inasistencia',
-                };
-                $base['fecha_inicio'] = $dates[0] ?? null;
-                $base['fecha_fin'] = $dates[1] ?? ($dates[0] ?? null);
-
-                return $base;
-            }
-        }
-
-        if (str_contains($normalized, 'citas del ') || str_contains($normalized, 'citas para el ') || str_contains($normalized, 'citas programadas')) {
-            $base['tipo'] = ReportService::TYPE_APPOINTMENTS_ON_DATE;
-            $base['fecha'] = $dates[0] ?? null;
 
             return $base;
         }
@@ -461,6 +457,26 @@ final class ReportAiService
         }
 
         return preg_match('/^\d{4}-\d{2}-\d{2}(?:\s+a\s+\d{4}-\d{2}-\d{2})?$/u', $normalized) === 1;
+    }
+
+    private function detectSingleAppointmentStatus(string $normalizedInstruction): ?string
+    {
+        $periodTail = '(?:de|del|este|esta|la|el|hoy|ayer)\b';
+        $patterns = [
+            'Inasistencia' => '/(?:\bcitas?\s+inasistenc|\binasistenc\w*\s+'.$periodTail.'|\bestado\s+inasistenc|\breporte\s+de\s+inasistenc)/u',
+            'Programada' => '/(?:\bcitas?\s+programad|\bprogramad\w*\s+'.$periodTail.'|\bestado\s+programad|\breporte\s+de\s+programad)/u',
+            'Confirmada' => '/(?:\bcitas?\s+confirmad|\bconfirmad\w*\s+'.$periodTail.'|\bestado\s+confirmad|\breporte\s+de\s+confirmad)/u',
+            'Atendida' => '/(?:\bcitas?\s+atendid|\batendid\w*\s+'.$periodTail.'|\bestado\s+atendid|\breporte\s+de\s+atendid)/u',
+            'Cancelada' => '/(?:\bcitas?\s+cancelad|\bcancelad\w*\s+'.$periodTail.'|\bestado\s+cancelad|\breporte\s+de\s+cancelad)/u',
+        ];
+        $matched = [];
+        foreach ($patterns as $estado => $pattern) {
+            if (preg_match($pattern, $normalizedInstruction) === 1) {
+                $matched[] = $estado;
+            }
+        }
+
+        return count($matched) === 1 ? $matched[0] : null;
     }
 
     private function isFullHistoryInstruction(string $normalizedInstruction): bool
