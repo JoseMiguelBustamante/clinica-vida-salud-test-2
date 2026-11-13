@@ -171,9 +171,12 @@ final class ReportAiService
             'Si el usuario dijo un período relativo, resuélvelo YA a fechas concretas con Hoy='.$today.' y status=ready (no pidas YYYY-MM-DD):',
             'hoy/el día de hoy => fecha='.$today.' o fecha_inicio=fecha_fin='.$today.';',
             'ayer => día anterior a Hoy;',
-            'esta semana/la semana => fecha_inicio=lunes de esta semana, fecha_fin=Hoy;',
-            'este mes/el mes => fecha_inicio=primer día del mes, fecha_fin=Hoy.',
-            'Si falta el período, status=clarify y questions en español ofreciendo opciones naturales (hoy, esta semana, este mes o una fecha), sin exigir el formato YYYY-MM-DD al usuario.',
+            'esta semana/la semana => tipo=totales_periodo, fecha_inicio=lunes de esta semana, fecha_fin=Hoy;',
+            'este mes/el mes => tipo=totales_periodo, fecha_inicio=primer día del mes, fecha_fin=Hoy;',
+            'este año/el año => tipo=totales_periodo, fecha_inicio=1 de enero del año de Hoy, fecha_fin=Hoy;',
+            'todas las citas / todo el histórico / histórico => tipo=totales_periodo, fecha_inicio='.ReportDateDefaults::historyStart($today).', fecha_fin=Hoy.',
+            'Nunca uses citas_fecha ni agenda_diaria para semana, mes, año o histórico: esos tipos son de un solo día.',
+            'Si falta el período, status=clarify y questions en español ofreciendo opciones naturales (hoy, esta semana, este mes, este año, histórico o una fecha), sin exigir el formato YYYY-MM-DD al usuario.',
             'Nunca inventes fechas, médico, especialidad ni estado que el usuario no haya indicado.',
             'pregunta es la pregunta opcional sobre el reporte ya generado; null si solo quiere generar o resumir.',
             'Para citas_fecha y agenda_diaria usa fecha. Para rangos usa fecha_inicio y fecha_fin (fin = hasta dónde consultar).',
@@ -277,6 +280,16 @@ final class ReportAiService
             return $base;
         }
 
+        if ($this->isFullHistoryInstruction($normalized) || $this->isMultiDayRelativeInstruction($normalized, $today)) {
+            $base['tipo'] = ReportService::TYPE_PERIOD_TOTALS;
+            if ($dates !== []) {
+                $base['fecha_inicio'] = $dates[0] ?? null;
+                $base['fecha_fin'] = $dates[1] ?? ($dates[0] ?? null);
+            }
+
+            return $base;
+        }
+
         foreach (['programada', 'confirmada', 'atendida', 'cancelada', 'inasistencia'] as $estado) {
             if (str_contains($normalized, 'estado '.$estado) || str_contains($normalized, 'citas en estado '.$estado) || str_contains($normalized, 'citas '.$estado)) {
                 $base['tipo'] = ReportService::TYPE_APPOINTMENTS_BY_STATUS;
@@ -338,6 +351,14 @@ final class ReportAiService
             ReportService::TYPE_PERIOD_TOTALS,
         ], true);
 
+        if ($period['multi_day'] && ($needsSingle || $tipo === null)) {
+            $plan['tipo'] = ReportService::TYPE_PERIOD_TOTALS;
+            $plan['fecha'] = null;
+            $tipo = ReportService::TYPE_PERIOD_TOTALS;
+            $needsSingle = false;
+            $needsRange = true;
+        }
+
         if ($needsSingle && ($plan['fecha'] ?? null) === null) {
             $plan['fecha'] = $period['single'];
         }
@@ -369,6 +390,9 @@ final class ReportAiService
     private function isDateFocusedInstruction(string $instruction, string $today): bool
     {
         $normalized = mb_strtolower(trim($instruction));
+        if ($this->isFullHistoryInstruction($normalized) || $this->isMultiDayRelativeInstruction($normalized, $today)) {
+            return true;
+        }
         if ($this->relativePeriod($normalized, $today) !== null) {
             return preg_match('/\b(agenda|citas|totales|pacientes|medico|médico|especialidad|estado|reporte)\b/u', $normalized) !== 1;
         }
@@ -376,8 +400,24 @@ final class ReportAiService
         return preg_match('/^\d{4}-\d{2}-\d{2}(?:\s+a\s+\d{4}-\d{2}-\d{2})?$/u', $normalized) === 1;
     }
 
+    private function isFullHistoryInstruction(string $normalizedInstruction): bool
+    {
+        if (preg_match('/\besta semana\b|\bla semana\b|\beste mes\b|\bel mes\b|\beste a[nñ]o\b|\bel a[nñ]o\b|\ba[nñ]o actual\b|\bmes actual\b|\bsemana actual\b/u', $normalizedInstruction) === 1) {
+            return false;
+        }
+
+        return preg_match('/\btodas las citas\b|\btodo el hist[oó]rico\b|\bhist[oó]rico\b|\btodo el historial\b|\bdesde siempre\b/u', $normalizedInstruction) === 1;
+    }
+
+    private function isMultiDayRelativeInstruction(string $normalizedInstruction, string $today): bool
+    {
+        $period = $this->relativePeriod($normalizedInstruction, $today);
+
+        return $period !== null && $period['multi_day'];
+    }
+
     /**
-     * @return array{single: string, start: string, end: string}|null
+     * @return array{single: string, start: string, end: string, multi_day: bool}|null
      */
     private function relativePeriod(string $normalizedInstruction, string $today): ?array
     {
@@ -386,23 +426,37 @@ final class ReportAiService
         if (preg_match('/\bayer\b/u', $normalizedInstruction) === 1) {
             $yesterday = $day->copy()->subDay()->toDateString();
 
-            return ['single' => $yesterday, 'start' => $yesterday, 'end' => $yesterday];
+            return ['single' => $yesterday, 'start' => $yesterday, 'end' => $yesterday, 'multi_day' => false];
         }
 
-        if (preg_match('/\bhoy\b|\bel d[ií]a de hoy\b/u', $normalizedInstruction) === 1) {
-            return ['single' => $today, 'start' => $today, 'end' => $today];
+        if (preg_match('/\bhoy\b|\bel d[ií]a de hoy\b/u', $normalizedInstruction) === 1
+            && ! $this->isFullHistoryInstruction($normalizedInstruction)
+            && preg_match('/\besta semana\b|\beste mes\b|\beste a[nñ]o\b|\bla semana\b|\bel mes\b|\bel a[nñ]o\b/u', $normalizedInstruction) !== 1) {
+            return ['single' => $today, 'start' => $today, 'end' => $today, 'multi_day' => false];
         }
 
         if (preg_match('/\besta semana\b|\bla semana\b|\bsemana actual\b/u', $normalizedInstruction) === 1) {
             $start = $day->copy()->startOfWeek(Carbon::MONDAY)->toDateString();
 
-            return ['single' => $today, 'start' => $start, 'end' => $today];
+            return ['single' => $today, 'start' => $start, 'end' => $today, 'multi_day' => $start !== $today];
         }
 
         if (preg_match('/\beste mes\b|\bel mes\b|\bmes actual\b/u', $normalizedInstruction) === 1) {
             $start = $day->copy()->startOfMonth()->toDateString();
 
-            return ['single' => $today, 'start' => $start, 'end' => $today];
+            return ['single' => $today, 'start' => $start, 'end' => $today, 'multi_day' => $start !== $today];
+        }
+
+        if (preg_match('/\beste a[nñ]o\b|\bel a[nñ]o\b|\ba[nñ]o actual\b/u', $normalizedInstruction) === 1) {
+            $start = $day->copy()->startOfYear()->toDateString();
+
+            return ['single' => $today, 'start' => $start, 'end' => $today, 'multi_day' => $start !== $today];
+        }
+
+        if ($this->isFullHistoryInstruction($normalizedInstruction)) {
+            $start = ReportDateDefaults::historyStart($today);
+
+            return ['single' => $today, 'start' => $start, 'end' => $today, 'multi_day' => true];
         }
 
         return null;
@@ -511,7 +565,7 @@ final class ReportAiService
 
         if ($plan['tipo'] === null) {
             if ($questions === []) {
-                $questions[] = 'Indique el tipo de reporte y el período a consultar (hoy, esta semana, este mes o una fecha).';
+                $questions[] = 'Indique el tipo de reporte y el período a consultar (hoy, esta semana, este mes, este año, histórico o una fecha).';
             }
 
             return $this->clarifyPlan($questions, $plan);
@@ -574,14 +628,25 @@ final class ReportAiService
             return $plan;
         }
 
-        $plan['tipo'] = $priorTipo;
-        $plan['id_medico'] = $plan['id_medico'] ?? $this->nullablePositiveInt($priorCriteria['id_medico'] ?? null);
-        $plan['id_especialidad'] = $plan['id_especialidad'] ?? $this->nullablePositiveInt($priorCriteria['id_especialidad'] ?? null);
-        $plan['estado'] = $plan['estado'] ?? $this->nullableEstado($priorCriteria['estado'] ?? null);
+        $period = $hasRelative ? $this->relativePeriod($normalized, $today) : null;
+        $priorIsSingleDay = in_array($priorTipo, [
+            ReportService::TYPE_APPOINTMENTS_ON_DATE,
+            ReportService::TYPE_DAILY_AGENDA,
+        ], true);
+        if ($period !== null && $period['multi_day'] && $priorIsSingleDay) {
+            $plan['tipo'] = ReportService::TYPE_PERIOD_TOTALS;
+            $plan['fecha'] = null;
+        } else {
+            $plan['tipo'] = $priorTipo;
+            $plan['id_medico'] = $plan['id_medico'] ?? $this->nullablePositiveInt($priorCriteria['id_medico'] ?? null);
+            $plan['id_especialidad'] = $plan['id_especialidad'] ?? $this->nullablePositiveInt($priorCriteria['id_especialidad'] ?? null);
+            $plan['estado'] = $plan['estado'] ?? $this->nullableEstado($priorCriteria['estado'] ?? null);
+        }
 
         if ($hasExplicitDate && preg_match_all('/\b(\d{4}-\d{2}-\d{2})\b/', $instruction, $matches) > 0) {
             $dates = $matches[1];
-            if (in_array($priorTipo, [ReportService::TYPE_APPOINTMENTS_ON_DATE, ReportService::TYPE_DAILY_AGENDA], true)) {
+            $effectiveTipo = is_string($plan['tipo'] ?? null) ? $plan['tipo'] : $priorTipo;
+            if (in_array($effectiveTipo, [ReportService::TYPE_APPOINTMENTS_ON_DATE, ReportService::TYPE_DAILY_AGENDA], true)) {
                 $plan['fecha'] = $plan['fecha'] ?? ($dates[0] ?? null);
             } else {
                 $plan['fecha_inicio'] = $plan['fecha_inicio'] ?? ($dates[0] ?? null);

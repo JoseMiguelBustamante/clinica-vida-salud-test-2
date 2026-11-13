@@ -206,6 +206,71 @@ class ReportAiServiceTest extends TestCase
         Http::assertNothingSent();
     }
 
+    public function test_plan_promotes_este_mes_to_period_totals(): void
+    {
+        config([
+            'openai.api_key' => '',
+            'openai.model' => '',
+            'openai.base_url' => '',
+        ]);
+        Http::fake();
+
+        $plan = (new ReportAiService)->planReportInstruction(
+            'este mes',
+            '2026-11-13',
+            ['tipo' => 'citas_fecha', 'fecha' => '2026-11-13'],
+        );
+
+        $this->assertSame('ready', $plan['status']);
+        $this->assertSame('totales_periodo', $plan['tipo']);
+        $this->assertSame('2026-11-01', $plan['fecha_inicio']);
+        $this->assertSame('2026-11-13', $plan['fecha_fin']);
+        $this->assertNull($plan['fecha']);
+        Http::assertNothingSent();
+    }
+
+    public function test_plan_resolves_todas_las_citas_as_history_period_totals(): void
+    {
+        config([
+            'openai.api_key' => '',
+            'openai.model' => '',
+            'openai.base_url' => '',
+        ]);
+        Http::fake();
+
+        $plan = (new ReportAiService)->planReportInstruction(
+            'todas las citas',
+            '2026-11-13',
+        );
+
+        $this->assertSame('ready', $plan['status']);
+        $this->assertSame('totales_periodo', $plan['tipo']);
+        $this->assertSame('2016-01-01', $plan['fecha_inicio']);
+        $this->assertSame('2026-11-13', $plan['fecha_fin']);
+        Http::assertNothingSent();
+    }
+
+    public function test_plan_prefers_month_over_history_when_both_are_mentioned(): void
+    {
+        config([
+            'openai.api_key' => '',
+            'openai.model' => '',
+            'openai.base_url' => '',
+        ]);
+        Http::fake();
+
+        $plan = (new ReportAiService)->planReportInstruction(
+            'todas las citas de este mes',
+            '2026-11-13',
+        );
+
+        $this->assertSame('ready', $plan['status']);
+        $this->assertSame('totales_periodo', $plan['tipo']);
+        $this->assertSame('2026-11-01', $plan['fecha_inicio']);
+        $this->assertSame('2026-11-13', $plan['fecha_fin']);
+        Http::assertNothingSent();
+    }
+
     /**
      * @return array{title: string, headers: list<string>, rows: list<list<string>>, summary: list<string>}
      */

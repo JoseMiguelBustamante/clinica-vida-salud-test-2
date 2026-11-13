@@ -56,6 +56,18 @@ final class ReportDateDefaults
         return Carbon::today()->startOfMonth()->toDateString();
     }
 
+    /**
+     * Earliest calendar day used when the user asks for full appointment history.
+     */
+    public static function historyStart(?string $today = null): string
+    {
+        $day = $today === null || $today === ''
+            ? Carbon::today()
+            : Carbon::parse($today)->startOfDay();
+
+        return $day->copy()->subYears(10)->startOfYear()->toDateString();
+    }
+
     private static function filled(mixed $value): bool
     {
         return is_string($value) && $value !== '';
