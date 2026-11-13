@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\Appointments;
 
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Throwable;
@@ -49,16 +50,64 @@ final class ReportAiService
      *     pregunta: ?string
      * }
      */
-    public function planReportInstruction(string $instruction, string $today): array
+    /**
+     * @param  array{
+     *     tipo?: ?string,
+     *     fecha?: ?string,
+     *     fecha_inicio?: ?string,
+     *     fecha_fin?: ?string,
+     *     id_medico?: ?int,
+     *     id_especialidad?: ?int,
+     *     estado?: ?string
+     * }  $priorCriteria
+     * @return array{
+     *     status: 'ready'|'clarify',
+     *     questions: list<string>,
+     *     tipo: ?string,
+     *     fecha: ?string,
+     *     fecha_inicio: ?string,
+     *     fecha_fin: ?string,
+     *     id_medico: ?int,
+     *     id_especialidad: ?int,
+     *     estado: ?string,
+     *     pregunta: ?string
+     * }
+     */
+    public function planReportInstruction(string $instruction, string $today, array $priorCriteria = []): array
     {
         $trimmed = trim($instruction);
         if ($trimmed === '') {
-            return $this->clarifyPlan(['Indique qué reporte necesita y el período o fecha a consultar.']);
+            return $this->clarifyPlan(['Indique qué reporte necesita y el período (hoy, esta semana, este mes) o una fecha.']);
         }
 
         $deterministic = $this->deterministicPlan($trimmed, $today);
         if ($deterministic !== null) {
-            return $this->normalizePlan($deterministic);
+            return $this->normalizePlan(
+                $this->applyRelativeDates($deterministic, $trimmed, $today),
+                $trimmed,
+                $today,
+                $priorCriteria,
+            );
+        }
+
+        if ($this->isDateFocusedInstruction($trimmed, $today) && $this->nullableString($priorCriteria['tipo'] ?? null) !== null) {
+            return $this->normalizePlan(
+                $this->applyRelativeDates([
+                    'status' => 'ready',
+                    'questions' => [],
+                    'tipo' => null,
+                    'fecha' => null,
+                    'fecha_inicio' => null,
+                    'fecha_fin' => null,
+                    'id_medico' => null,
+                    'id_especialidad' => null,
+                    'estado' => null,
+                    'pregunta' => null,
+                ], $trimmed, $today),
+                $trimmed,
+                $today,
+                $priorCriteria,
+            );
         }
 
         if (! $this->isConfigured()) {
@@ -73,18 +122,23 @@ final class ReportAiService
             );
         } catch (ReportAiUnavailable) {
             return $this->clarifyPlan([
-                'No pude contactar al modelo para interpretar la instrucción. Escriba el tipo y las fechas en formato AAAA-MM-DD, por ejemplo: Agenda diaria de cada médico para el '.$today.'.',
+                'No pude contactar al modelo para interpretar la instrucción. Diga el tipo y el período, por ejemplo: Agenda diaria de cada médico para hoy ('.$today.').',
             ]);
         }
 
         $decoded = $this->decodePlanJson($content);
         if ($decoded === null) {
             return $this->clarifyPlan([
-                'No pude interpretar la instrucción. Indique el tipo de reporte y las fechas (solo día, sin hora).',
+                'No pude interpretar la instrucción. Indique el tipo de reporte y el período (hoy, esta semana, este mes o una fecha).',
             ]);
         }
 
-        return $this->normalizePlan($decoded);
+        return $this->normalizePlan(
+            $this->applyRelativeDates($decoded, $trimmed, $today),
+            $trimmed,
+            $today,
+            $priorCriteria,
+        );
     }
 
     private function systemPrompt(): string
@@ -113,10 +167,14 @@ final class ReportAiService
             'Responde SOLO un JSON válido, sin markdown ni texto extra, con esta forma:',
             '{"status":"ready"|"clarify","questions":[],"tipo":null,"fecha":null,"fecha_inicio":null,"fecha_fin":null,"id_medico":null,"id_especialidad":null,"estado":null,"pregunta":null}.',
             'Tipos permitidos: '.implode('; ', $types).'.',
-            'Fechas solo en formato YYYY-MM-DD. No uses hora del reloj.',
-            'Si el usuario no dio un parámetro obligatorio del tipo elegido, status=clarify y questions en español pidiendo exactamente lo faltante.',
+            'Las fechas en el JSON deben ir en YYYY-MM-DD. No uses hora del reloj.',
+            'Si el usuario dijo un período relativo, resuélvelo YA a fechas concretas con Hoy='.$today.' y status=ready (no pidas YYYY-MM-DD):',
+            'hoy/el día de hoy => fecha='.$today.' o fecha_inicio=fecha_fin='.$today.';',
+            'ayer => día anterior a Hoy;',
+            'esta semana/la semana => fecha_inicio=lunes de esta semana, fecha_fin=Hoy;',
+            'este mes/el mes => fecha_inicio=primer día del mes, fecha_fin=Hoy.',
+            'Si falta el período, status=clarify y questions en español ofreciendo opciones naturales (hoy, esta semana, este mes o una fecha), sin exigir el formato YYYY-MM-DD al usuario.',
             'Nunca inventes fechas, médico, especialidad ni estado que el usuario no haya indicado.',
-            'Si dijo un período relativo claro (hoy, esta semana, este mes), puedes resolverlo a fechas concretas usando Hoy.',
             'pregunta es la pregunta opcional sobre el reporte ya generado; null si solo quiere generar o resumir.',
             'Para citas_fecha y agenda_diaria usa fecha. Para rangos usa fecha_inicio y fecha_fin (fin = hasta dónde consultar).',
             'estado solo: Programada, Confirmada, Atendida, Cancelada, Inasistencia.',
@@ -243,13 +301,108 @@ final class ReportAiService
             return $base;
         }
 
-        if (str_contains($normalized, 'hoy') && (str_contains($normalized, 'agenda') || str_contains($normalized, 'citas'))) {
-            $base['tipo'] = str_contains($normalized, 'agenda')
-                ? ReportService::TYPE_DAILY_AGENDA
-                : ReportService::TYPE_APPOINTMENTS_ON_DATE;
-            $base['fecha'] = $today;
+        if (str_contains($normalized, 'agenda') || str_contains($normalized, 'citas')) {
+            if ($this->relativePeriod($normalized, $today) !== null || $dates !== []) {
+                $base['tipo'] = str_contains($normalized, 'agenda')
+                    ? ReportService::TYPE_DAILY_AGENDA
+                    : ReportService::TYPE_APPOINTMENTS_ON_DATE;
+                $base['fecha'] = $dates[0] ?? null;
 
-            return $base;
+                return $base;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * @param  array<string, mixed>  $plan
+     * @return array<string, mixed>
+     */
+    private function applyRelativeDates(array $plan, string $instruction, string $today): array
+    {
+        $period = $this->relativePeriod(mb_strtolower($instruction), $today);
+        if ($period === null) {
+            return $plan;
+        }
+
+        $tipo = is_string($plan['tipo'] ?? null) ? $plan['tipo'] : null;
+        $needsSingle = in_array($tipo, [
+            ReportService::TYPE_APPOINTMENTS_ON_DATE,
+            ReportService::TYPE_DAILY_AGENDA,
+        ], true);
+        $needsRange = in_array($tipo, [
+            ReportService::TYPE_APPOINTMENTS_BY_PHYSICIAN,
+            ReportService::TYPE_APPOINTMENTS_BY_SPECIALTY,
+            ReportService::TYPE_APPOINTMENTS_BY_STATUS,
+            ReportService::TYPE_PERIOD_TOTALS,
+        ], true);
+
+        if ($needsSingle && ($plan['fecha'] ?? null) === null) {
+            $plan['fecha'] = $period['single'];
+        }
+
+        if ($needsRange) {
+            if (($plan['fecha_inicio'] ?? null) === null) {
+                $plan['fecha_inicio'] = $period['start'];
+            }
+            if (($plan['fecha_fin'] ?? null) === null) {
+                $plan['fecha_fin'] = $period['end'];
+            }
+        }
+
+        if ($tipo === null) {
+            if (($plan['fecha'] ?? null) === null) {
+                $plan['fecha'] = $period['single'];
+            }
+            if (($plan['fecha_inicio'] ?? null) === null) {
+                $plan['fecha_inicio'] = $period['start'];
+            }
+            if (($plan['fecha_fin'] ?? null) === null) {
+                $plan['fecha_fin'] = $period['end'];
+            }
+        }
+
+        return $plan;
+    }
+
+    private function isDateFocusedInstruction(string $instruction, string $today): bool
+    {
+        $normalized = mb_strtolower(trim($instruction));
+        if ($this->relativePeriod($normalized, $today) !== null) {
+            return preg_match('/\b(agenda|citas|totales|pacientes|medico|médico|especialidad|estado|reporte)\b/u', $normalized) !== 1;
+        }
+
+        return preg_match('/^\d{4}-\d{2}-\d{2}(?:\s+a\s+\d{4}-\d{2}-\d{2})?$/u', $normalized) === 1;
+    }
+
+    /**
+     * @return array{single: string, start: string, end: string}|null
+     */
+    private function relativePeriod(string $normalizedInstruction, string $today): ?array
+    {
+        $day = Carbon::parse($today)->startOfDay();
+
+        if (preg_match('/\bayer\b/u', $normalizedInstruction) === 1) {
+            $yesterday = $day->copy()->subDay()->toDateString();
+
+            return ['single' => $yesterday, 'start' => $yesterday, 'end' => $yesterday];
+        }
+
+        if (preg_match('/\bhoy\b|\bel d[ií]a de hoy\b/u', $normalizedInstruction) === 1) {
+            return ['single' => $today, 'start' => $today, 'end' => $today];
+        }
+
+        if (preg_match('/\besta semana\b|\bla semana\b|\bsemana actual\b/u', $normalizedInstruction) === 1) {
+            $start = $day->copy()->startOfWeek(Carbon::MONDAY)->toDateString();
+
+            return ['single' => $today, 'start' => $start, 'end' => $today];
+        }
+
+        if (preg_match('/\beste mes\b|\bel mes\b|\bmes actual\b/u', $normalizedInstruction) === 1) {
+            $start = $day->copy()->startOfMonth()->toDateString();
+
+            return ['single' => $today, 'start' => $start, 'end' => $today];
         }
 
         return null;
@@ -304,6 +457,15 @@ final class ReportAiService
 
     /**
      * @param  array<string, mixed>  $decoded
+     * @param  array{
+     *     tipo?: ?string,
+     *     fecha?: ?string,
+     *     fecha_inicio?: ?string,
+     *     fecha_fin?: ?string,
+     *     id_medico?: ?int,
+     *     id_especialidad?: ?int,
+     *     estado?: ?string
+     * }  $priorCriteria
      * @return array{
      *     status: 'ready'|'clarify',
      *     questions: list<string>,
@@ -317,7 +479,7 @@ final class ReportAiService
      *     pregunta: ?string
      * }
      */
-    private function normalizePlan(array $decoded): array
+    private function normalizePlan(array $decoded, string $instruction = '', string $today = '', array $priorCriteria = []): array
     {
         $questions = [];
         foreach ($decoded['questions'] ?? [] as $question) {
@@ -345,10 +507,11 @@ final class ReportAiService
             'pregunta' => $this->nullableString($decoded['pregunta'] ?? null),
         ];
 
-        $status = strtolower(trim((string) ($decoded['status'] ?? '')));
-        if ($status === 'clarify' || $tipo === null) {
+        $plan = $this->mergeDateFocusedFollowUp($plan, $instruction, $today, $priorCriteria);
+
+        if ($plan['tipo'] === null) {
             if ($questions === []) {
-                $questions[] = 'Indique el tipo de reporte y las fechas a consultar.';
+                $questions[] = 'Indique el tipo de reporte y el período a consultar (hoy, esta semana, este mes o una fecha).';
             }
 
             return $this->clarifyPlan($questions, $plan);
@@ -360,6 +523,73 @@ final class ReportAiService
         }
 
         return $plan;
+    }
+
+    /**
+     * @param  array{
+     *     status: string,
+     *     questions: list<string>,
+     *     tipo: ?string,
+     *     fecha: ?string,
+     *     fecha_inicio: ?string,
+     *     fecha_fin: ?string,
+     *     id_medico: ?int,
+     *     id_especialidad: ?int,
+     *     estado: ?string,
+     *     pregunta: ?string
+     * }  $plan
+     * @param  array{
+     *     tipo?: ?string,
+     *     fecha?: ?string,
+     *     fecha_inicio?: ?string,
+     *     fecha_fin?: ?string,
+     *     id_medico?: ?int,
+     *     id_especialidad?: ?int,
+     *     estado?: ?string
+     * }  $priorCriteria
+     * @return array{
+     *     status: string,
+     *     questions: list<string>,
+     *     tipo: ?string,
+     *     fecha: ?string,
+     *     fecha_inicio: ?string,
+     *     fecha_fin: ?string,
+     *     id_medico: ?int,
+     *     id_especialidad: ?int,
+     *     estado: ?string,
+     *     pregunta: ?string
+     * }
+     */
+    private function mergeDateFocusedFollowUp(array $plan, string $instruction, string $today, array $priorCriteria): array
+    {
+        $priorTipo = $this->nullableString($priorCriteria['tipo'] ?? null);
+        if ($priorTipo === null || $plan['tipo'] !== null || $instruction === '' || $today === '') {
+            return $plan;
+        }
+
+        $normalized = mb_strtolower($instruction);
+        $hasExplicitDate = preg_match('/\b\d{4}-\d{2}-\d{2}\b/', $instruction) === 1;
+        $hasRelative = $this->relativePeriod($normalized, $today) !== null;
+        if (! $hasExplicitDate && ! $hasRelative) {
+            return $plan;
+        }
+
+        $plan['tipo'] = $priorTipo;
+        $plan['id_medico'] = $plan['id_medico'] ?? $this->nullablePositiveInt($priorCriteria['id_medico'] ?? null);
+        $plan['id_especialidad'] = $plan['id_especialidad'] ?? $this->nullablePositiveInt($priorCriteria['id_especialidad'] ?? null);
+        $plan['estado'] = $plan['estado'] ?? $this->nullableEstado($priorCriteria['estado'] ?? null);
+
+        if ($hasExplicitDate && preg_match_all('/\b(\d{4}-\d{2}-\d{2})\b/', $instruction, $matches) > 0) {
+            $dates = $matches[1];
+            if (in_array($priorTipo, [ReportService::TYPE_APPOINTMENTS_ON_DATE, ReportService::TYPE_DAILY_AGENDA], true)) {
+                $plan['fecha'] = $plan['fecha'] ?? ($dates[0] ?? null);
+            } else {
+                $plan['fecha_inicio'] = $plan['fecha_inicio'] ?? ($dates[0] ?? null);
+                $plan['fecha_fin'] = $plan['fecha_fin'] ?? ($dates[1] ?? ($dates[0] ?? null));
+            }
+        }
+
+        return $this->applyRelativeDates($plan, $instruction, $today);
     }
 
     /**
@@ -421,26 +651,30 @@ final class ReportAiService
     {
         return match ($plan['tipo']) {
             ReportService::TYPE_APPOINTMENTS_ON_DATE, ReportService::TYPE_DAILY_AGENDA => $plan['fecha'] === null
-                ? ['Indique la fecha del reporte (YYYY-MM-DD).']
+                ? ['Indique el día del reporte: diga hoy, ayer o una fecha.']
                 : [],
             ReportService::TYPE_APPOINTMENTS_BY_PHYSICIAN => array_values(array_filter([
                 $plan['id_medico'] === null ? 'Indique el id numérico del médico, o use los filtros manuales.' : null,
-                $plan['fecha_inicio'] === null ? 'Indique la fecha inicial (YYYY-MM-DD).' : null,
-                $plan['fecha_fin'] === null ? 'Indique la fecha final hasta dónde consultar (YYYY-MM-DD).' : null,
+                $plan['fecha_inicio'] === null || $plan['fecha_fin'] === null
+                    ? 'Indique el período: hoy, esta semana, este mes o fechas concretas.'
+                    : null,
             ])),
             ReportService::TYPE_APPOINTMENTS_BY_SPECIALTY => array_values(array_filter([
                 $plan['id_especialidad'] === null ? 'Indique el id numérico de la especialidad, o use los filtros manuales.' : null,
-                $plan['fecha_inicio'] === null ? 'Indique la fecha inicial (YYYY-MM-DD).' : null,
-                $plan['fecha_fin'] === null ? 'Indique la fecha final hasta dónde consultar (YYYY-MM-DD).' : null,
+                $plan['fecha_inicio'] === null || $plan['fecha_fin'] === null
+                    ? 'Indique el período: hoy, esta semana, este mes o fechas concretas.'
+                    : null,
             ])),
             ReportService::TYPE_APPOINTMENTS_BY_STATUS => array_values(array_filter([
                 $plan['estado'] === null ? 'Indique el estado (Programada, Confirmada, Atendida, Cancelada o Inasistencia).' : null,
-                $plan['fecha_inicio'] === null ? 'Indique la fecha inicial (YYYY-MM-DD).' : null,
-                $plan['fecha_fin'] === null ? 'Indique la fecha final hasta dónde consultar (YYYY-MM-DD).' : null,
+                $plan['fecha_inicio'] === null || $plan['fecha_fin'] === null
+                    ? 'Indique el período: hoy, esta semana, este mes o fechas concretas.'
+                    : null,
             ])),
             ReportService::TYPE_PERIOD_TOTALS => array_values(array_filter([
-                $plan['fecha_inicio'] === null ? 'Indique la fecha inicial (YYYY-MM-DD).' : null,
-                $plan['fecha_fin'] === null ? 'Indique la fecha final hasta dónde consultar (YYYY-MM-DD).' : null,
+                $plan['fecha_inicio'] === null || $plan['fecha_fin'] === null
+                    ? 'Indique el período: hoy, esta semana, este mes o fechas concretas.'
+                    : null,
             ])),
             ReportService::TYPE_REGISTERED_PATIENTS => [],
             default => ['Indique un tipo de reporte válido.'],

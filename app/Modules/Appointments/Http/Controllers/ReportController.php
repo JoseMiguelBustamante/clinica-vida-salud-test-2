@@ -118,11 +118,20 @@ final class ReportController
                 $plan = $this->assistant->planReportInstruction(
                     $instruction !== '' ? $instruction : 'Necesito ayuda para generar un reporte.',
                     ReportDateDefaults::today(),
+                    [
+                        'tipo' => $validated['tipo'] ?? null,
+                        'fecha' => $validated['fecha'] ?? null,
+                        'fecha_inicio' => $validated['fecha_inicio'] ?? null,
+                        'fecha_fin' => $validated['fecha_fin'] ?? null,
+                        'id_medico' => isset($validated['id_medico']) ? (int) $validated['id_medico'] : null,
+                        'id_especialidad' => isset($validated['id_especialidad']) ? (int) $validated['id_especialidad'] : null,
+                        'estado' => $validated['estado'] ?? null,
+                    ],
                 );
 
                 if ($plan['status'] === 'clarify') {
                     return redirect()
-                        ->route('reports.generate', $shouldReplan ? [] : $query)
+                        ->route('reports.generate', $this->assistantQueryFromInput($this->criteriaFromPlan($validated, $plan)))
                         ->withFragment('asistente-reporte')
                         ->with('ai_clarifications', $plan['questions'])
                         ->with('ai_question', $instruction !== '' ? $instruction : null);

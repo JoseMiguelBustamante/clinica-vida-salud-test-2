@@ -2008,11 +2008,20 @@ a.code-link:hover {
     width: 100%;
 }
 
-.reports-filter-card .reports-date-presets .button {
+.reports-filter-card .reports-date-presets .button,
+.reports-filter-bar .reports-date-presets .button {
     flex: 1 1 auto;
     width: auto;
+    min-height: 2.6rem;
+    background: #ffffff;
+    color: var(--clinic-ink);
+    border: 1px solid var(--clinic-line);
 }
 
+.reports-filter-card .reports-date-presets .button:hover,
+.reports-filter-bar .reports-date-presets .button:hover {
+    background: var(--clinic-panel);
+}
 
 .reports-date-presets {
     grid-column: 1 / -1;
@@ -3218,6 +3227,15 @@ body.is-app .booking-cancel:hover {
     .filter-bar .button,
     .list-card .filter-bar .button {
         width: 100%;
+    }
+
+    .reports-filter-bar .reports-date-presets .button,
+    .list-card .reports-filter-bar .reports-date-presets .button {
+        width: auto;
+        flex: 1 1 calc(50% - 0.35rem);
+        background: #ffffff;
+        color: var(--clinic-ink);
+        border: 1px solid var(--clinic-line);
     }
 
     .app-page h1,

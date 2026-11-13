@@ -117,6 +117,8 @@ class ReportAiServiceTest extends TestCase
         $this->assertNotEmpty($plan['questions']);
         $this->assertTrue(collect($plan['questions'])->contains(
             fn (string $question): bool => str_contains(mb_strtolower($question), 'fecha')
+                || str_contains(mb_strtolower($question), 'período')
+                || str_contains(mb_strtolower($question), 'periodo')
         ));
     }
 
@@ -139,6 +141,68 @@ class ReportAiServiceTest extends TestCase
         $this->assertSame('2026-11-10', $plan['fecha']);
         $this->assertSame('Armá citas del 2026-11-10 y decime cuántas canceladas hubo', $plan['pregunta']);
         $this->assertSame([], $plan['questions']);
+        Http::assertNothingSent();
+    }
+
+    public function test_plan_resolves_relative_week_for_period_totals_without_provider(): void
+    {
+        config([
+            'openai.api_key' => '',
+            'openai.model' => '',
+            'openai.base_url' => '',
+        ]);
+        Http::fake();
+
+        $plan = (new ReportAiService)->planReportInstruction(
+            'Quiero totales de atendidas y canceladas de esta semana',
+            '2026-11-13',
+        );
+
+        $this->assertSame('ready', $plan['status']);
+        $this->assertSame('totales_periodo', $plan['tipo']);
+        $this->assertSame('2026-11-09', $plan['fecha_inicio']);
+        $this->assertSame('2026-11-13', $plan['fecha_fin']);
+        Http::assertNothingSent();
+    }
+
+    public function test_plan_resolves_hoy_for_daily_agenda_without_provider(): void
+    {
+        config([
+            'openai.api_key' => '',
+            'openai.model' => '',
+            'openai.base_url' => '',
+        ]);
+        Http::fake();
+
+        $plan = (new ReportAiService)->planReportInstruction(
+            'Agenda diaria de cada médico para hoy',
+            '2026-11-13',
+        );
+
+        $this->assertSame('ready', $plan['status']);
+        $this->assertSame('agenda_diaria', $plan['tipo']);
+        $this->assertSame('2026-11-13', $plan['fecha']);
+        Http::assertNothingSent();
+    }
+
+    public function test_plan_merges_date_only_follow_up_with_prior_tipo(): void
+    {
+        config([
+            'openai.api_key' => '',
+            'openai.model' => '',
+            'openai.base_url' => '',
+        ]);
+        Http::fake();
+
+        $plan = (new ReportAiService)->planReportInstruction(
+            'hoy',
+            '2026-11-13',
+            ['tipo' => 'agenda_diaria'],
+        );
+
+        $this->assertSame('ready', $plan['status']);
+        $this->assertSame('agenda_diaria', $plan['tipo']);
+        $this->assertSame('2026-11-13', $plan['fecha']);
         Http::assertNothingSent();
     }
 

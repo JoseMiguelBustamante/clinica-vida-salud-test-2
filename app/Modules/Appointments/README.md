@@ -58,11 +58,14 @@ The assistant is the primary block at the top of the page; manual filters stay
 collapsed unless already in use. AI answers render after the result table.
 Compatible browsers can talk to the assistant: speech is recognized, the same
 generate/ask request is submitted, and the reply (or clarifications) is spoken
-back. Chrome on phones requires a secure HTTPS context and microphone
-permission; unsupported browsers hide the voice controls. Text entry remains
-available as a secondary path. Submitting requires
-the existing report permission, CSRF token and provider configuration. Verify AI
-answers against the report.
+back. Relative periods such as hoy, esta semana and este mes are resolved to
+calendar dates; clarifications ask for a natural period, not only YYYY-MM-DD.
+Manual date shortcuts fill the filter inputs without navigating away; only
+Generar con filtros submits. Chrome on phones requires a secure HTTPS context
+and microphone permission; unsupported browsers hide the voice controls. Text
+entry remains available as a secondary path. Submitting requires the existing
+report permission, CSRF token and provider configuration. Verify AI answers
+against the report.
 
 CU21 plans `recordatorio_cita` after a successful booking when the patient
 already had reminders enabled with a verified email. Confirmation is not the

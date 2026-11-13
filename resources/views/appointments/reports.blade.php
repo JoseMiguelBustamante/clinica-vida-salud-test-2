@@ -48,7 +48,7 @@
 
         <article class="list-card detail-card reports-ai-card" id="asistente-reporte" aria-labelledby="assistant-title">
             <h2 id="assistant-title">Asistente del reporte</h2>
-            <p class="reports-filter-hint" id="assistant-help">Hable con el asistente: diga qué reporte necesita y la fecha (AAAA-MM-DD). Él responde por voz. También puede escribir.</p>
+            <p class="reports-filter-hint" id="assistant-help">Hable con el asistente: diga qué reporte necesita y el período (hoy, esta semana, este mes o una fecha). Él responde por voz. También puede escribir.</p>
             @if (! ($aiConfigured ?? false))
                 <p class="form-status" role="status">El asistente no está configurado. En Dokploy defina <code>OPENAI_API_KEY</code>, <code>OPENAI_BASE_URL</code> y <code>OPENAI_MODEL</code> del proveedor que use (API compatible; la suscripción del chat no alcanza).</p>
             @endif
@@ -81,7 +81,7 @@
                             <span class="reports-listen-caption">Toque, hable y espere la respuesta</span>
                         </span>
                     </button>
-                    <p class="reports-filter-hint" id="reports-dictate-status" role="status" aria-live="polite">Toque el micrófono, diga el reporte con fecha y el asistente continuará solo.</p>
+                    <p class="reports-filter-hint" id="reports-dictate-status" role="status" aria-live="polite">Toque el micrófono, diga el reporte y el período (hoy, esta semana, este mes…) y el asistente continuará solo.</p>
                 </div>
                 <details class="reports-ai-text-fallback">
                     <summary>Escribir en texto</summary>
@@ -172,13 +172,13 @@
                 @endif
 
                 @if ($needsRange || $needsSingleDate)
-                    <div class="reports-date-presets" role="group" aria-label="Atajos de fecha">
+                    <div class="reports-date-presets" role="group" aria-label="Atajos de fecha" data-reports-date-presets>
                         @if ($needsSingleDate)
-                            <a class="button button-inline button-quiet" href="{{ route('reports.generate', array_merge($baseQuery, ['fecha' => $presetToday])) }}">Hoy</a>
+                            <button class="button button-inline button-quiet" type="button" data-reports-preset="hoy" data-fecha="{{ $presetToday }}">Hoy</button>
                         @else
-                            <a class="button button-inline button-quiet" href="{{ route('reports.generate', array_merge($baseQuery, ['fecha_inicio' => $presetToday, 'fecha_fin' => $presetToday])) }}">Hoy</a>
-                            <a class="button button-inline button-quiet" href="{{ route('reports.generate', array_merge($baseQuery, ['fecha_inicio' => $presetWeekStart, 'fecha_fin' => $presetToday])) }}">Esta semana</a>
-                            <a class="button button-inline button-quiet" href="{{ route('reports.generate', array_merge($baseQuery, ['fecha_inicio' => $presetMonthStart, 'fecha_fin' => $presetToday])) }}">Este mes</a>
+                            <button class="button button-inline button-quiet" type="button" data-reports-preset="hoy" data-fecha-inicio="{{ $presetToday }}" data-fecha-fin="{{ $presetToday }}">Hoy</button>
+                            <button class="button button-inline button-quiet" type="button" data-reports-preset="semana" data-fecha-inicio="{{ $presetWeekStart }}" data-fecha-fin="{{ $presetToday }}">Esta semana</button>
+                            <button class="button button-inline button-quiet" type="button" data-reports-preset="mes" data-fecha-inicio="{{ $presetMonthStart }}" data-fecha-fin="{{ $presetToday }}">Este mes</button>
                         @endif
                     </div>
                 @endif
@@ -428,6 +428,30 @@
     </section>
     <script>
         (function () {
+            var filterForm = document.getElementById('reports-filter-form');
+            var presetGroup = document.querySelector('[data-reports-date-presets]');
+            if (filterForm && presetGroup) {
+                presetGroup.addEventListener('click', function (event) {
+                    var target = event.target.closest('[data-reports-preset]');
+                    if (! target || ! presetGroup.contains(target)) {
+                        return;
+                    }
+                    event.preventDefault();
+                    var fecha = filterForm.querySelector('#fecha');
+                    var fechaInicio = filterForm.querySelector('#fecha_inicio');
+                    var fechaFin = filterForm.querySelector('#fecha_fin');
+                    if (fecha && target.hasAttribute('data-fecha')) {
+                        fecha.value = target.getAttribute('data-fecha') || '';
+                    }
+                    if (fechaInicio && target.hasAttribute('data-fecha-inicio')) {
+                        fechaInicio.value = target.getAttribute('data-fecha-inicio') || '';
+                    }
+                    if (fechaFin && target.hasAttribute('data-fecha-fin')) {
+                        fechaFin.value = target.getAttribute('data-fecha-fin') || '';
+                    }
+                });
+            }
+
             var Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
             var voiceBox = document.querySelector('[data-reports-voice]');
             var form = document.getElementById('reports-ai-form');
@@ -606,7 +630,7 @@
                 starting = false;
                 setListenUi(false);
                 if (! keepStatus) {
-                    setDictateStatus('Toque el micrófono, diga el reporte con fecha y el asistente continuará solo.');
+                    setDictateStatus('Toque el micrófono, diga el reporte y el período (hoy, esta semana, este mes…) y el asistente continuará solo.');
                 }
                 if (recognition) {
                     try { recognition.abort(); } catch (e) {}

@@ -82,6 +82,9 @@ class ReportScreenTest extends TestCase
             ->assertSee('getUserMedia', false)
             ->assertSee('submitVoiceTurn', false)
             ->assertSee('Filtros manuales')
+            ->assertSee('data-reports-date-presets', false)
+            ->assertSee('data-reports-preset', false)
+            ->assertSee('hoy, esta semana, este mes', false)
             ->assertDontSee('Ir al asistente IA')
             ->assertDontSee('Primero genere un reporte para habilitar las preguntas.');
         $dom = new \DOMDocument;
@@ -90,6 +93,8 @@ class ReportScreenTest extends TestCase
         $this->assertSame(1, $xpath->query('//textarea[@id="pregunta" and not(@disabled)]')->length);
         $this->assertSame(1, $xpath->query('//form[contains(@class,"reports-ai-form")]//button[@name="accion" and @value="resumir" and not(@disabled)]')->length);
         $this->assertSame(0, $xpath->query('//form[contains(@class,"reports-ai-form")]//button[@name="accion" and @value="preguntar"]')->length);
+        $this->assertGreaterThan(0, $xpath->query('//div[@data-reports-date-presets]//button[@type="button" and @data-reports-preset]')->length);
+        $this->assertSame(0, $xpath->query('//div[@data-reports-date-presets]//a')->length);
         $this->assertSame([], $this->app['db']->getConnections());
     }
 
